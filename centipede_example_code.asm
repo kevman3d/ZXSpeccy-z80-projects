@@ -206,7 +206,7 @@ centipede       ld de,segData           ; set up the pointer to the centipede da
                 ld ixl,e
 clearloop       ld a,(ix+0)             ; test to see if we've reached the end of the data
                 cp 128
-                jr z, movecentipede     ; go down to move the segments
+                jr z, movecentipede     ; If true, we can go down to move the segments
                 call clearScreen        ; Clear the segment
                 inc ix                  ; go to the next segment
                 inc ix
@@ -219,7 +219,7 @@ movecentipede   pop de                  ; Retrieve the address back into de
                 ld ixl,e
 moveloop        ld a,(ix+0)             ; test to see if we've reached the end of the data
                 cp 128
-                jr z, drawcentipede     ; go down to move the segments
+                jr z, drawcentipede     ; If true, we can go down to draw the segments
                 call movesegment        ; Move the segments
                 inc ix                  ; go to the next segment
                 inc ix
@@ -231,7 +231,7 @@ drawcentipede   pop de                  ; Retrieve the address back into de
                 ld ixl,e
 drawloop        ld a,(ix+0)             ; test to see if we've reached the end of the data
                 cp 128
-                ret z                   ; We're all done!  We can exit
+                ret z                   ; If true, we're all done!  We can exit back to wherever this was called from.
                 call drawScreen         ; draw the segments
                 inc ix                  ; go to the next segment
                 inc ix
