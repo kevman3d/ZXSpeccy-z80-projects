@@ -3,39 +3,43 @@ This repository is a collection of Sinclair ZX Spectrum projects and code exampl
 
 You can consider this repository as being an ongoing collection of code examples, small game projects and more, primarily developed in Z80 assembler language.
 
-## ZX Spectrum Next
-With a successfully funded kickstarter unleashing a modern remake of the ZX Spectrum (with enhanced and advanced additions) called the ZX Spectrum Next, there is a renewed interest in coding and programming appearing within the retro community.  This is also a big reason why I decided to start 'getting back into it' (essentially reviving a whole area of coding experience that was laid to rest around 1990).
+# FILES
+The following is an index of the files in this repository and will be updated as new files are added.
+## Centipede programming example
+A start on development of an old 1986 notebook plan for a centipede clone for the ZX Spectrum.  A scanned copy of the notebook is provided.  This initial set of files demonstrate how to code a simple working centipede control routine.
 
-https://www.specnext.com/
+- **1986_KP_Centipede_design.pdf** : Scanned hand-written notebook plan
+- **centipede_example_code.asm** : Assembler code for creating a moving 'centipede' routine
+- **centipede_example_demo.sna** : ZX Spectrum snapshot (.sna) that can be loaded in an emulator and run.
 
-## Education
-All code that is placed up on this repository will be thoroughly explained, mostly through comments within the code, though additional scanned notes, documents and perhaps video content may also be included.  As a professional educator, I am obsessive about making sure everything I do is explained and valuable as a resource for others to hopefully learn from.
-
-## Tools
+# Tools
 To work with assembler code, especially when developing for the ZX Spectrum, I made use of the following:
-### ZEUS Windows IDE (DesignDesign).
+## ZEUS Windows IDE (DesignDesign).
 Excellent development tool, and well worth grabbing.  It offers a broad range of tools, including emulation and other more advanced functions such as the ability to write out emulator file formats (.tzx, etc) within the assembler tool itself.
 
 http://www.desdes.com/products/oldfiles/
 
 Note that I used the actual ZX Spectrum version of the ZEUS assembler back in the 1980's.  It was an excellent tool back then as well...
-### ZXSpin
+## ZXSpin
 ZXSpin is a nice Spectrum emulator, though sadly is no longer supported or developed.  Fairly feature packed, it also includes an assembler that can be used to develop and work with code.  I used this emulator a few times to compile and run the code I was testing directly 'in' the ZX Spectrum without having to transfer files or launch other applications to do so.
 
 ZXSpin : https://www.zophar.net/sinclair/zx-spin.html
 
+## Notepad++
+Most people prefer proper development IDE's, however I make heavy use of the excellent Notepad++ editor for code editing.  Primarily I use this for most of my python work (there is a plugin called pyNPP that can launch and run the script).  Its an option worth considering for those who have no other editing tools (sublime, etc).
+
+https://notepad-plus-plus.org/
+
 ## Other development resources
 There are many ZX spectrum emulators, some have built in debuggers, editors and tools.  For more options, here are some additional links that you can look at to some great tools.
-#### Emulators/dev tools
-CSpect : https://dailly.blogspot.com/
-
-Zesarux : https://github.com/chernandezba/zesarux
-
-Z88dk : https://github.com/z88dk/z88dk
+### Emulators/dev tools
+- **CSpect** : https://dailly.blogspot.com/
+- **Zesarux** : https://github.com/chernandezba/zesarux
+- **Z88dk** : https://github.com/z88dk/z88dk
 
 ### Documentation and information (Z80 programming)
 http://z80-heaven.wikidot.com/
-#### ZX Spectrum Next 
+### ZX Spectrum Next 
 There are a few development resources listed on the official website:
 https://www.specnext.com/category/resources/resources_coding/
 
