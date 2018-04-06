@@ -1,39 +1,31 @@
 ; CENTIPEDE Z80 FUNCTION - Kevin Phillips, 1986-2018.
 ; Centipede code - draws a moving 8-segment centipede travelling down the screen using simple
-; colour blocks on the ZX spectrum.  Its not perfect (code needs to be tweaked when it moves
-; down to prevent it eating the block below it), but it should make for a (hopefully) easy example
-; of approaching this type of program.
+; colour blocks on the ZX spectrum.  Its not a perfect implimentation of the actual arcade game
+; centipede but provides an easy to follow example on how to code this type of task.
 ;
-; Originally hand-written in 1986, 2018 is the *first* time I ever sat and typed my code in...
-; Amazingly, when I assembled it - it was a complete failure! lol! :D  This instead is the cleaned 
-; up and works...  If you are curious about what exactly did a 16 year old write, I've scanned and
-; put the whole plan for a centipede game here:
-; https://drive.google.com/file/d/0B-yNJZpBnrutdUZCaUluMDhnMzQ/view?usp=sharing
+; After being assembled, this code can be tested using a simple BASIC program.  The routine is
+; called at address 40168...  Example program below.
 ;
-; After assembled, this can be tested using a BASIC program.  When assembled, the centipede function is
-; called at address 40168...  There is a snapshot (.sna) for those wanting to just run this... Ignore
-; the messed up line numbering - was a quick hack... Well, that's MY excuse at least
-;
-;  10 REM Quick example.  Note that we should initiate the segment data
+;  10 REM Initiate the segment data
 ;  15 GOSUB 100
 ;  20 PAPER 0 : BORDER 0 : INK 7 : CLS
 ;  30 REM Create some 'mushrooms' (colour code 96)
 ;  40 FOR m=0 TO 64 : POKE 22528+(RND*768),96 : NEXT m
+;  45 REM call the centipede routine to move and draw
 ;  50 RANDOMISE USR 40168
 ;  60 REM I'm using the BEEP to control the speed of the game (0.01 of a second per loop)
 ;  70 BEEP 0.01, 0
 ;  80 GOTO 50
-; 100 REM Initialise
+; 100 REM Initialise data - starts at address 40206
 ; 105 LET seg=40246
 ; 106 LET x=8
 ; 110 REM Loop through data until last segment
-; 115 IF PEEK seg=128 THEN GO TO 145
+; 115 IF PEEK seg=128 THEN RETURN
 ; 120 POKE seg,255 : LET seg=seg+1
 ; 125 POKE seg,x : LET seg=seg+1 : LET x=x+1
 ; 130 POKE seg,0 : LET seg=seg+1
 ; 135 POKE seg,1 : LET seg=seg+1
 ; 140 GO TO 115
-; 145 RETURN
 ;
 
 ; Just define some colour attribute constants
