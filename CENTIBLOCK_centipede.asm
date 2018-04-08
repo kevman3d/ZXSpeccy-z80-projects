@@ -2,13 +2,8 @@
 ; Centipede control functions.  This file contains the routines used to move the centipede
 ; in the game.  This code is an update on the example code developed as a simple demo, but now
 ; has the addition of collision tests for downward mushrooms, as well as a downward motion to
-; add the 'poison mushroom' kamikaze feature (Centipede hits a poison muchroom, centipede goes
+; add the 'poison mushroom' kamikaze feature (Centipede hits a poison mushroom, centipede goes
 ; directly down to bottom of screen (invincible))
-;
-; On compile, routine centipede is at 40259.  Segment data is at 40337
-;
-; The entire game has been broken out into separate .asm files based on the tasks that are
-; performed during the game.  This information is available in the CENTIBLOCK_project.pdf doc.
 
 ; Colour attribute constants
 mushroom        equ 96          ; Bright green for mushrooms
