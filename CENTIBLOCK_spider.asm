@@ -1,13 +1,10 @@
 ; "CENTIBLOCK" - CENTIPEDE CLONE for ZX Spectrum.  Kevin Phillips, 1986-2018.
-; Spider control functions.  At random intervals, a spider will appear.  This bounces
+; Spider control functions.  At timed intervals, a spider will appear.  This bounces
 ; across the screen in one direction (for now, may change later), however at top/bottom bounce
 ; it may decide to move or not.  The spider also does not delete BG colours (ie. mushrooms, etc)
-;
-; The entire game has been broken out into separate .asm files based on the tasks that are
-; performed during the game.  This information is available in the CENTIBLOCK_project.pdf doc.
 
 ; Colour attribute constants
-bgcolor         equ 7           ; Background colour to clear centipede from screen
+bgcolor         equ 7           ; Generic BG colour
 spider          equ 72          ; Spider block - Blue
 ; -------------------------------------------------------------------------------------------------
 ; CODE STARTS HERE (for testing)
@@ -16,9 +13,9 @@ spider          equ 72          ; Spider block - Blue
 ; -------------------------------------------------------------------------------------------------
 ; MOVESPIDER : Calculates the movement of the spider
 ; -------------------------------------------------------------------------------------------------
-; Unlike the centipede, as a single entity the entire process is called in this one routine
+; Unlike the centipede, as a single entity the entire process of erase, move, draw is in one routine
 
-movespider      ld ix,sdrData           ; Set IC to the spider data.
+movespider      ld ix,sdrData           ; Set IX to the spider data.
                 ld a,(ix+0)             ; Check to make sure the spider is active
                 cp 0                    ; Was it off?
                 ret z                   ; If so, we can safely return and do nothing
@@ -26,9 +23,7 @@ movespider      ld ix,sdrData           ; Set IC to the spider data.
                 ; Start by blanking out the spider location
                 call clearspider
                 
-                ; Move spider - lets backup the X and Y location
-                ld a,(ix+1)             ; Read the spider's X location into the 'a' register
-                ld (tempX),a            ; Store the X location temporarily into a memory location
+                ; Move spider - Backup Y - just handy to have when moving down for quick reset
                 ld a,(ix+2)             ; Read the spider's Y location
                 ld (tempY),a            ; Store the Y location temporarily
 
@@ -102,7 +97,7 @@ spiderU         ld a,(ix+2)             ; Grab the Y value
                 ld (ix+4),1             ; Set the Y move to down
                 call chooseDirection    ; And see if we are going to randomly change direction X
 
-spiderOK        call getspiderBG        ; Grab the contents of the spiders new position first
+spiderOK        call getspiderBG        ; Grab the BGcontents of the spiders new position first
                 call drawspider         ; then draw the spider
                 ret                     ; and we're done...
                 
@@ -118,11 +113,11 @@ chooseDirection ld hl,(randM)           ; Grab the random value (ie. our rom add
                 inc hl                  ; Otherwise inc and move on...
                 ld (randM),hl
                 ret
-resetMove       ld hl,randMotion
+resetMove       ld hl,randMotion        ; Reset the table pointer ready to start again
                 ld (randM),hl
                 ld a,(hl)
-                ld (ix+3),a
-                ret                     ; And exit routine
+                ld (ix+3),a             ; And don't forget to reset the x move...
+                ret                     ; We're finished
                 
 ; -------------------------------------------------------------------------------------------------
 ; SCREEN FUNCTIONS
