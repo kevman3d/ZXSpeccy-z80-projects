@@ -46,8 +46,8 @@ There are many ZX spectrum emulators, some have built in debuggers, editors and 
 - **Z88dk** : https://github.com/z88dk/z88dk
 
 ### Documentation and information (Z80 programming)
-http://z80-heaven.wikidot.com/
-http://clrhome.org/table/
+- http://z80-heaven.wikidot.com/
+- http://clrhome.org/table/
 
 ### ZX Spectrum Next 
 There are a few development resources listed on the official website:
