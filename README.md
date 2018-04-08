@@ -47,6 +47,8 @@ There are many ZX spectrum emulators, some have built in debuggers, editors and 
 
 ### Documentation and information (Z80 programming)
 http://z80-heaven.wikidot.com/
+http://clrhome.org/table/
+
 ### ZX Spectrum Next 
 There are a few development resources listed on the official website:
 https://www.specnext.com/category/resources/resources_coding/
