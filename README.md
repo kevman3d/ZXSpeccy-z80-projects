@@ -12,6 +12,14 @@ A start on development of an old 1986 notebook plan for a centipede clone for th
 - **centipede_example_code.asm** : Assembler code for creating a moving 'centipede' routine
 - **centipede_example_demo.sna** : ZX Spectrum snapshot (.sna) that can be loaded in an emulator and run.
 
+## Centiblock (Centi(pede) with block (attribute) graphics) sample files
+Centiblock carries on from the previous centipede example (which was a self-learning and upskilling exercise).  Each of the different parts of a typical centipede game are demonstrated individually as example code to show how to approach each detail.  Once complete, all the pieces of code will be compiled into a single assembler file to produce a finished game.
+
+- **CENTIBLOCK_centipede.asm** : Similiar to centipede example, but has correct collision as well as kamikaze (poison mushroom) mode
+- **CENTIBLOCK_spider.asm** : A bouncing spider with appearance timer and some pseudo-randomness to its movement.
+- **spiderDemo_centiblock_test.sna** : ZX Spectrum snapshot (.sna) to load and run the spider code
+- **centipedeDemo_centiblock_test.sna** : ZX Spectrum snapshot (.sna) to load and run the centipede code
+
 # Tools
 To work with assembler code, especially when developing for the ZX Spectrum, I made use of the following:
 ## ZEUS Windows IDE (DesignDesign).
