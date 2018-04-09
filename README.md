@@ -15,7 +15,7 @@ A start on development of an old 1986 notebook plan for a centipede clone for th
 ## Centiblock (Centi(pede) with block (attribute) graphics) sample files
 Centiblock carries on from the previous centipede example (which was a self-learning and upskilling exercise).  Each of the different parts of a typical centipede game are demonstrated individually as example code to show how to approach each detail.  Once complete, all the pieces of code will be compiled into a single assembler file to produce a finished game.
 
-- **CENTIBLOCK_centipede.asm** : Similiar to centipede example, but has correct collision as well as kamikaze (poison mushroom) mode
+- **CENTIBLOCK_centipede.asm** : Moving centipede with collision as well as kamikaze (poison mushroom) mode
 - **CENTIBLOCK_spider.asm** : A bouncing spider with appearance timer and some pseudo-randomness to its movement.
 - **CENTIBLOCK_player.asm** : User controlled player and bullet, with basic bullet-mushroom collision (Q,A,O,P,M)
 - **CENTIBLOCK_flea.asm** : A flea drops down above the player, leaving random mushrooms in its path
