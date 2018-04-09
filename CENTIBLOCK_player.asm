@@ -365,7 +365,7 @@ tempY           defb    0
 ; In this code, this quicky hack is used to store colour to draw for drawscn function
 tempC           defb    7
 
-; Table for keys (port value, bit test, recordBit (to store keypress is true))
+; Table for keys (port value, bit test, recordBit (to store keypress if true))
 keysTable       defb    251,1,128       ; Q key
                 defb    253,1,64        ; A key
                 defb    223,2,32        ; O key
