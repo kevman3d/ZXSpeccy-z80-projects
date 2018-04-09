@@ -17,9 +17,10 @@ Centiblock carries on from the previous centipede example (which was a self-lear
 
 - **CENTIBLOCK_centipede.asm** : Similiar to centipede example, but has correct collision as well as kamikaze (poison mushroom) mode
 - **CENTIBLOCK_spider.asm** : A bouncing spider with appearance timer and some pseudo-randomness to its movement.
+- **CENTIBLOCK_player.asm** : User controlled player and bullet, with basic bullet-mushroom collision (Q,A,O,P,M)
 - **spiderDemo_centiblock_test.sna** : ZX Spectrum snapshot (.sna) to load and run the spider code
 - **centipedeDemo_centiblock_test.sna** : ZX Spectrum snapshot (.sna) to load and run the centipede code
-
+- **playerdemo_centiblock.sna** : ZX Spectrum snapshot (.sna) to load and run the player code
 # Tools
 To work with assembler code, especially when developing for the ZX Spectrum, I made use of the following:
 ## ZEUS Windows IDE (DesignDesign).
