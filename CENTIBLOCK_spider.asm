@@ -1,7 +1,7 @@
 ; "CENTIBLOCK" - CENTIPEDE CLONE for ZX Spectrum.  Kevin Phillips, 1986-2018.
 ; Spider control functions.  At timed intervals, a spider will appear.  This bounces
-; across the screen in one direction (for now, may change later), however at top/bottom bounce
-; it may decide to move or not.  The spider also does not delete BG colours (ie. mushrooms, etc)
+; across the screen however at top/bottom bounce it may decide to change direction of
+; stop moving.  Note that the spider also does not delete BG colours (ie. mushrooms, etc)
 
 ; Colour attribute constants
 bgcolor         equ 7           ; Generic BG colour
