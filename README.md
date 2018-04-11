@@ -1,7 +1,5 @@
 # ZXSpeccy-z80-projects
-This repository is a collection of Sinclair ZX Spectrum projects and code examples, mostly written in Z80 assembly language, developed as both an educational and personal resource and released here on github for public consumption.
-
-You can consider this repository as being an ongoing collection of code examples, small game projects and more, primarily developed in Z80 assembler language.
+You can consider this repository as being an ongoing collection of code examples, small game projects and more, primarily developed in Z80 assembler language.  Developed as both an educational and personal resource and released here on github for public consumption.
 
 # FILES
 The following is an index of the files in this repository and will be updated as new files are added.
