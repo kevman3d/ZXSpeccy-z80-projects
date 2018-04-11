@@ -117,8 +117,8 @@ drawbyte    ld a,(ix+0)     ; Grab the pixel data
             ld bc,(charPos) ; Get the X and Y again
             call calcAttrib ; Get the attribute address into hl
             
-            ld ix,(charAtt) ; Grab the attribute
-            ld a,(ix+0)         
+            ld de,charAtt  ; Grab the attribute
+            ld a,(de)         
             ld (hl),a       ; and poke it onto the screen
             
             ret             ; We're done!
