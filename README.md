@@ -5,6 +5,10 @@ You can consider this repository as being an ongoing collection of code examples
 
 # FILES
 The following is an index of the files in this repository and will be updated as new files are added.
+## General code examples
+Various small snippets of code to demonstrate various techniques and approaches to a variety of tasks on the ZX spectrum
+
+- **GENERAL_8x8Char_draw.asm** : How to calculate the screen address of a X,Y location and then draw a 8x8 pixel character
 ## Centipede programming example
 A start on development of an old 1986 notebook plan for a centipede clone for the ZX Spectrum.  A scanned copy of the notebook is provided.  This initial set of files demonstrate how to code a simple working centipede control routine.
 
