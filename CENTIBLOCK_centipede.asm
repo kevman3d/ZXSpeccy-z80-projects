@@ -1,5 +1,5 @@
 ; "CENTIBLOCK" - CENTIPEDE CLONE for ZX Spectrum.  Kevin Phillips, 1986-2018.
-; Centipede control functions.  This file contains the routines used to move the centipede
+; Centipede control routines.  This file contains the routines used to move the centipede
 ; in the game.  This code is an update on the example code developed as a simple demo, but now
 ; has the addition of collision tests for downward mushrooms, as well as a downward motion to
 ; add the 'poison mushroom' kamikaze feature (Centipede hits a poison mushroom, centipede goes
