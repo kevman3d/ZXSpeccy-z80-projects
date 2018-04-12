@@ -1,5 +1,5 @@
 # --------------------------------------------------------------------------------
-# Convert pixels in a PNG into text byte data for use in my Z80 projects.
+# Extract UDG data from a PNG, write text data 'defb' info for use in my Z80 projects.
 # Kevin Phillips, 2018. 
 #
 # v1.0	12-04-2018	KP	* Created simple tool.  Set up data for creating
