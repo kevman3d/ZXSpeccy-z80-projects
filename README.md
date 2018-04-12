@@ -3,6 +3,11 @@ You can consider this repository as being an ongoing collection of code examples
 
 # FILES
 The following is an index of the files in this repository and will be updated as new files are added.
+## Utilities and tools
+Non-spectrum tools, written to assist the development process and shave off some time.
+
+- **centipede_PNG_to_bytes.py** : Python script to read UDG data in a PNG file, creates defb text for use in assembler
+-- **centipede.png** : Example PNG file used by the python script.
 ## General code examples
 Various small snippets of code to demonstrate various techniques and approaches to a variety of tasks on the ZX spectrum
 
