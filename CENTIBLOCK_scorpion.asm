@@ -1,5 +1,5 @@
 ; "CENTIBLOCK" - CENTIPEDE CLONE for ZX Spectrum.  Kevin Phillips, 1986-2018.
-; Scorpion control functions.  A scorpion character is super-simple.  It simply travels in from the
+; Scorpion control routines.  A scorpion character is super-simple.  It simply travels in from the
 ; side of the screen in a straight line.  When it travels over a mushroom, it switches it to poison
 ; which causes the centipede to kamikaze directly down to the bottom of the screen.
 ;
