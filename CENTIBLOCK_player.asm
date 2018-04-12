@@ -1,5 +1,5 @@
 ; "CENTIBLOCK" - CENTIPEDE CLONE for ZX Spectrum.  Kevin Phillips, 1986-2018.
-; Player and Bullet control functions.  Code that reads the keyboard, moves the player and controls
+; Player and Bullet control routines.  Code that reads the keyboard, moves the player and controls
 ; firing of the bullet.  Note that the bullet function will test for collisions and update relevant
 ; flags of other elements in game.  This example simply checks for mushrooms, but will be expanded
 ; later when integrated into the entire game.
