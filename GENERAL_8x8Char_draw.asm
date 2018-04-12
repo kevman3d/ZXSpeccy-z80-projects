@@ -24,6 +24,15 @@ org 40000
 ; The way that the screen is structured is in 3 blocks of 8 character lines each.  Memory is ordered
 ; so that the first pixel line for all 8 lines (32 characters wide) is drawn, then the second and so
 ; forth.  Once all 8 pixel lines are done, the next block of 8 lines begins.
+;
+; On completion, then the attribute data is written sequentually from left to right, line by line.
+;
+; Its easier to show then explain in words.  If you are familiar with watching loading screens on speccy's
+; then you are watching the screen memory being populated...
+;
+; Some 'more visual' examples showing screens loading (and hence showing structure) from Youtube:
+; https://youtu.be/MtBoRp_cSxQ
+; https://youtu.be/O6uwfM8F5uU
 ; -------------------------------------------------------------------------------------------------------
 ; So, how do we translate a value X and Y into a physical address?  We get their 'bits' and then
 ; structure them into our screen memory address.  I hope you know your binary, cause here we go...
