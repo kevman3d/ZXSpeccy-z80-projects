@@ -1,5 +1,5 @@
 ; "CENTIBLOCK" - CENTIPEDE CLONE for ZX Spectrum.  Kevin Phillips, 1986-2018.
-; Flea control functions.  A flea character is super-simple.  It drops down the screen above the
+; Flea control routines.  A flea character is super-simple.  It drops down the screen above the
 ; player and deposits random mushrooms (and deletes others).  Like the spider example, the flea
 ; will only appear every 'tick' count (a constant timer is incremented over the game loop, and then
 ; used to decide when to activate this character).
