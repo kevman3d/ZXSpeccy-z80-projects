@@ -1,5 +1,5 @@
 ; -------------------------------------------------------------------------------------------------------
-; EXAMPLE : Writing an 8-byte character to the ZX Spectrum graphics memory - Kevin Phillips, 1986-2018.
+; HOW-TO : Writing an 8-byte character to the ZX Spectrum graphics memory - Kevin Phillips, 1986-2018.
 ; This snippet of code demonstrates how to write to the spectrum's graphics memory.  The routine here
 ; can be used to draw 8x8 (characters) to the screen.
 ;
