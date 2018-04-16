@@ -78,6 +78,8 @@ for eachByte in xrange(height):
 		gfxBytes += (str(byteValue)+",")
 	else:
 		# Otherwise we've got the 8 bytes...  Reset our counter to start again
+		# Also make sure we grab that elusive last byte (its the 8th one)
+		gfxBytes += (str(byteValue)+",")
 		byteCount = 0
 
 		# Clean up our defb string by removing the trailing comma at the end
