@@ -32,6 +32,8 @@ Centiblock carries on from the previous centipede example (which was a self-lear
 - **playerdemo_centiblock.sna** : ZX Spectrum snapshot (.sna) to load and run the player code.
 - **fleaDemo_centiblock.sna** : ZX Spectrum snapshot (.sna) to load and run the flea code.
 - **scorpionDemo_centiblock.sna** : ZX Spectrum snapshot (.sna) to load and run the scorpion code
+## Centipede source code
+The file **centipede_complete_game.asm** is the WIP final game code.  This is currently incomplete, but will be updated as regularly as possible until its done.  At this stage its literally a copy-paste from the same files in Centiblock with a splattering of graphics and fixing bugs/typo's, etc.  More to come...
 # Tools
 To work with assembler code, especially when developing for the ZX Spectrum, I made use of the following:
 ## ZEUS Windows IDE (DesignDesign).
