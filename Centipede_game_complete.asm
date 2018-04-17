@@ -26,6 +26,7 @@ swOn            equ 255 ; generic on
 swKamikaze      equ 64  ; centipede kamikaze
 movRight        equ 1   ; generic move right value
 screenH         equ 24  ; Bottom of screen
+playerMin       equ 18  ; Highest the player ship can go
 
 ; -------------------------------------------------------------------------------------------------------
 ; DEFINE ADDRESS TO ASSEMBLE TO
@@ -40,6 +41,8 @@ org 40000
 ; https://github.com/kevman3d/ZXSpeccy-z80-projects
 ; -------------------------------------------------------------------------------------------------------
 
+; -------------------------------------------------------------------------------------------------------
+;                                T  H  E    C  E  N  T  I  P  E  D  E
 ; -------------------------------------------------------------------------------------------------------
 ; CENTIPEDE SEGMENT : Calculates the movement of a single centipede segment.  This is called from a 
 ; following routine called 'movecentipede'
@@ -78,11 +81,11 @@ centhorz        ld a,(ix+3)             ; read the X move direction
 centleft        ld a,(ix+1)             ; Get the X coordinate
                 dec a                   ; Move it left one
                 ld (ix+1),a             ; update the X coordinate
-				
+                
                 ld c,(ix+1)             ; Poke the YX values first
                 ld b,(ix+2)
                 ld (charPos),bc
-				
+                
                 call getattr            ; We now need to check and see if this new location is a mushroom
                 cp mushclr              ; The result was returned in the 'a' register.  See if it was a mushroom
                 jr z, centdown          ; and if true, jump to the down label
@@ -92,7 +95,7 @@ centleft        ld a,(ix+1)             ; Get the X coordinate
                 ld (ix+0),swKamikaze    ; Set the segment to kamikaze mode
                 jr kamikaze             ; and jump back up to the kamikaze code to finish the move
 
-centlChk		ld a,(ix+1)             ; Get the X coordinate into the 'a' register
+centlChk        ld a,(ix+1)             ; Get the X coordinate into the 'a' register
                 and 224                 ; See if X is in the range 0-31 (the 'and' operator will mask and see if
                                         ; any values in 128-32 exist (ie > 31) using 11100000)
                 ret z                   ; If all good, we're done and can exit...
@@ -101,7 +104,7 @@ centlChk		ld a,(ix+1)             ; Get the X coordinate into the 'a' register
 centright       ld a,(ix+1)             ; Get the X coordinate into the 'a' register
                 inc a                   ; Move it right one
                 ld (ix+1),a             ; Update the X coordinate
-				
+                
                 ld c,(ix+1)             ; Poke the YX values first
                 ld b,(ix+2)
                 ld (charPos),bc
@@ -145,7 +148,7 @@ centgodown      ld a,(ix+2)             ; Load the Y value into the 'a' register
 centokdown      ld c,(ix+1)             ; Poke the YX values first
                 ld b,(ix+2)
                 ld (charPos),bc
-				
+                
                 call getattr            ; But first test to make sure that we can move down
                 cp mushclr              ; Check to see if its a mushroom...
                 jr z, centnodown        ; If it is, we should reset the Y location
@@ -177,10 +180,10 @@ clearloop       ld a,(ix+0)             ; test to see if we've reached the end o
                 ld c,(ix+1)             ; Poke the YX values first
                 ld b,(ix+2)
                 ld (charPos),bc
-				
-				push ix					; Store the IX (pointing to centipede)
+                
+                push ix                 ; Store the IX (pointing to centipede)
                 call eraseChar          ; Clear the segment
-				pop ix					; Restore IX
+                pop ix                  ; Restore IX
                 inc ix                  ; go to the next segment
                 inc ix
                 inc ix
@@ -209,7 +212,7 @@ drawloop        ld a,(ix+0)             ; test to see if we've reached the end o
                 ld c,(ix+1)             ; Poke the YX values first
                 ld b,(ix+2)
                 ld (charPos),bc
-				
+                
                 push ix                 ; push ix to store it
                 
                 ld a,(ix+0)             ; Determine which way we're facing and set appropriate gfx
@@ -235,6 +238,356 @@ drawSegment     call drawChar           ; draw the segments
                 inc ix
                 inc ix
                 jr drawloop
+
+; -------------------------------------------------------------------------------------------------------
+;                                    T  H  E    P  L  A  Y  E  R
+; -------------------------------------------------------------------------------------------------------
+; -------------------------------------------------------------------------------------------------
+; MOVEPLAYER : Calculate and move the player ship.
+; -------------------------------------------------------------------------------------------------
+; Note that as this is a single entity, all processing is done in the one function.
+
+moveplayer      ; BULLET : Erase the bullet if active
+                ld ix,bullet        ; Set to bulletData quickly
+                ld a,(ix+0)             ; Is the bullet actually active?
+                cp swOff
+                jr z, goplayer          ; Yup, well, just skip over and do the player
+                
+                ; Otherwise, clear the bullet from the screen
+                ld c,(ix+1)             ; Poke the YX values first
+                ld b,(ix+2)
+                ld (charPos),bc
+                call eraseChar          ; Clear the bullet
+
+goplayer        ld ix,player            ; Lets point IX at the player data
+                
+                ; Firstly, lets backup the X and Y location
+                ld a,(ix+1)             ; Read the segment's X location into the 'a' register
+                ld (tempX),a            ; Store the X location temporarily into a memory location
+                ld a,(ix+2)             ; Read the segment's Y location
+                ld (tempY),a            ; Store the Y location temporarily
+                
+                ; Otherwise, clear the player from the screen first             ; backup ix (since eraseChar will change it)
+                ld c,(ix+1)             ; Poke the YX values first
+                ld b,(ix+2)
+                ld (charPos),bc
+        push ix
+                call eraseChar          ; Clear the player
+                pop ix                  ; restore ix
+
+                ; Read the keys.  The key details will be returned in d (bits 7-3)
+                call readKeys
+                
+                ; Now move and update the players position
+pressedup       bit 7,d                 ; Was up pressed?
+                jr z, presseddn         ; No, lets go test down
+                
+                ld a,(ix+2)             ; Get Y
+                dec a                   ; Move up
+                ld (ix+2),a             ; Update the Y value
+                
+                ; Did we hit a mushroom?  We can't move through these
+                ld c,(ix+1)             ; Poke the YX values first
+                ld b,(ix+2)
+                ld (charPos),bc
+                
+                push ix
+                call getattr            ; But first test to make sure that we can move down
+                pop ix
+                cp mushclr              ; Check to see if its a mushroom...
+                jr z, stopYu            ; Yup, lets reset the Y value
+                
+                ; Did we hit a poison mushroom?
+                ld c,(ix+1)             ; Poke the YX values first
+                ld b,(ix+2)
+                ld (charPos),bc
+                
+                push ix
+                call getattr            ; But first test to make sure that we can move down
+                pop ix
+                cp poisonclr
+                jr nz, okcheckup        ; Nope, we can skip over
+                
+stopYu          ld a,(tempY)            ; If we hit mushroom, lets reset the position
+                ld (ix+2),a
+okcheckup       ld a,(ix+2)
+                cp playerMin            ; Is the Y at the top max for the player
+                jr nz, pressedlt        ; No, we're all good - jump to left press...
+                
+                ld a,(tempY)            ; Otherwise just reset the Y value
+                ld (ix+2),a
+                jr pressedlt
+                
+                ; Check for player moving down.
+presseddn       call readKeys           ; Call the readKeys fucntion (checkscn screws d register)
+                bit 6,d
+                jr z, pressedlt         ; No, lets go test left
+                
+                ld a,(ix+2)             ; Get Y
+                inc a                   ; Move down
+                ld (ix+2),a             ; Update the Y value
+                
+                ; Did we hit a mushroom?  We can't move through these
+                ld c,(ix+1)             ; Poke the YX values first
+                ld b,(ix+2)
+                ld (charPos),bc
+                
+                push ix
+                call getattr            ; But first test to make sure that we can move down
+                pop ix
+                cp mushclr              ; Check to see if its a mushroom...
+                jr z, stopYd            ; Yup, lets reset the Y value
+                
+                ; Did we hit a poison mushroom?
+                ld c,(ix+1)             ; Poke the YX values first
+                ld b,(ix+2)
+                ld (charPos),bc
+                
+                push ix
+                call getattr            ; But first test to make sure that we can move down
+                pop ix
+                cp poisonclr
+                jr nz, okcheckdn        ; Nope, we can skip over
+                
+stopYd          ld a,(tempY)            ; If we hit mushroom, lets reset the position
+                ld (ix+2),a
+okcheckdn       ld a,(ix+2)
+                cp 24                   ; Is the Y at the bottom of the screen
+                jr nz, pressedlt        ; No, we're all good - jump to left press...
+                
+                ld a,(tempY)            ; Otherwise just reset the Y value
+                ld (ix+2),a
+                
+pressedlt       call readKeys           ; Call the readKeys fucntion (checkscn screws d register)
+                bit 5,d
+                jr z, pressedrt         ; No, lets go test right
+
+                ld a,(ix+1)             ; Get X
+                dec a                   ; Move left
+                ld (ix+1),a             ; Update the X value
+                
+                ; Did we hit a mushroom?  We can't move through these
+                ld c,(ix+1)             ; Poke the YX values first
+                ld b,(ix+2)
+                ld (charPos),bc
+                
+                push ix
+                call getattr            ; But first test to make sure that we can move down
+                pop ix
+                cp mushclr              ; Check to see if its a mushroom...
+                jr z, stopXl            ; Yup, lets reset the X value
+                
+                ; Did we hit a poison mushroom?
+                ld c,(ix+1)             ; Poke the YX values first
+                ld b,(ix+2)
+                ld (charPos),bc
+                
+                push ix
+                call getattr            ; But first test to make sure that we can move down
+                pop ix
+                cp poisonclr
+                jr nz, okchecklt        ; Nope, we can skip over
+                
+stopXl          ld a,(tempX)            ; If we hit mushroom, lets reset the position
+                ld (ix+1),a
+                
+okchecklt       ld a,(ix+1)
+                cp 0                    ; Is the X at the edge of the screen
+                jr nz, pressedfire      ; No, we're all good - jump to fire press check
+                
+                ld a,(tempX)            ; Otherwise just reset the X value
+                ld (ix+1),a
+                
+pressedrt       call readKeys           ; Call the readKeys fucntion (checkscn screws d register)
+                bit 4,d
+                jr z, pressedfire       ; No, we can just jump down to see if fire was pressed.
+
+                ld a,(ix+1)             ; Get X
+                inc a                   ; Move right
+                ld (ix+1),a             ; Update the X value
+                
+                ; Did we hit a mushroom?  We can't move through these
+                ld c,(ix+1)             ; Poke the YX values first
+                ld b,(ix+2)
+                ld (charPos),bc
+                
+                push ix
+                call getattr            ; But first test to make sure that we can move down
+                pop ix
+                cp mushclr              ; Check to see if its a mushroom...
+                jr z, stopXr            ; Yup, lets reset the X value
+                
+                ; Did we hit a poison mushroom?
+                ld c,(ix+1)             ; Poke the YX values first
+                ld b,(ix+2)
+                ld (charPos),bc
+                
+                push ix
+                call getattr            ; But first test to make sure that we can move down
+                pop ix
+                cp poisonclr
+                jr nz, okcheckrt        ; Nope, we can skip over
+                
+stopXr          ld a,(tempX)            ; If we hit mushroom, lets reset the position
+                ld (ix+1),a
+                
+okcheckrt       ld a,(ix+1)
+                cp 31                   ; Is the X at the edge of the screen
+                jr nz, pressedfire      ; No, we're all good - jump to fire press check
+                
+                ld a,(tempX)            ; Otherwise just reset the X value
+                ld (ix+1),a
+                
+pressedfire     ld ix,bullet        ; First, point ix to the bulletdata
+                call readKeys           ; Call the readKeys fucntion (checkscn screws d register)
+                bit 3,d
+                jr z, movebullet        ; Nope, just skip over and check if we can move the bullet.
+                
+                ; Check bullet status
+                ld a,(ix+0)             ; Check if bullet is active already
+                cp swOff
+                jr nz, movebullet       ; if yes, just go move it
+                
+                ; Set up a new bullet
+                ld (ix+0),swOn          ; Activate the bullet
+                ld hl,player        ; Get the players details and set bullet
+                inc hl
+                ld a,(hl)               ; Get the players X
+                ld (ix+1),a             ; and set the bullet to the same
+                inc hl
+                ld a,(hl)               ; Get the players Y
+                dec a                   ; Set the bullet to the player Y - 1
+                ld (ix+2),a
+                jr notfired             ; And we can jump down to draw ship and bullet
+                
+                ; Move the bullet.  Note the double-check to see if the bullet was active.  This is
+                ; to compensate for the keypress not knowing this fact yet...
+movebullet      ld a,(ix+0)             ; Check if bullet is active already
+                cp 0
+                jr z, notfired          ; if not just skip over the move
+                ld a,(ix+2)             ; Get the bullets Y
+                dec a                   ; move up
+                ld (ix+2),a
+                cp 0                    ; Top of screen reached?
+                jr nz, notfired         ; Nope, we can then skip down to draw ship and bullet
+                
+                ld (ix+0),swOff             ; Disable bullet (out of top of screen)
+                
+                ; DRAW PLAYER SHIP
+notfired        ld ix,player
+        ld c,(ix+1)             ; Poke the YX values first
+                ld b,(ix+2)
+                ld (charPos),bc
+                ld ix,gfxplayer        ; Set IX to the graphic
+                call drawChar          ; draw ship
+                
+                ; DRAW BULLET - finish up with checking for bullet hits, either drawing the bullet or
+                ; drawing an explosion/fx instead and deactivating the bullet.
+                ld ix,bullet        ; Set to bulletData quickly
+                ld a,(ix+0)             ; Is the bullet actually active?
+                cp swOff
+                ret z                   ; Nope - safe to exit
+                
+                ; Did we hit a mushroom?  If so, we just need to destroy it
+                ld c,(ix+1)             ; Poke the YX values first
+                ld b,(ix+2)
+                ld (charPos),bc
+                push ix
+                call getattr            ; grab the screen colour
+                pop ix
+                cp mushclr              ; Was it a mushroom?
+                jr z, goBoomM           ; Yup, go boomM (mushroom gets erased)
+                
+                ; Did we hit a mushroom?  If so, we just need to destroy it
+                ld c,(ix+1)             ; Poke the YX values first
+                ld b,(ix+2)
+                ld (charPos),bc
+                push ix
+                call getattr            ; grab the screen colour
+                pop ix
+                cp poisonclr            ; Was it a poison mushroom?
+                jr z, goBoomP           ; Yup, go boomP (poison gets hit, changes mushroom colour)
+                
+                ; Draw the bullet to screen
+                ld c,(ix+1)             ; Poke the YX values first
+                ld b,(ix+2)
+                ld (charPos),bc
+                ld ix,gfxbullet         ; Set IX to the bullet graphic
+                call drawChar           ; And draw the bullet
+                ret
+                
+                ; Draw a boom FX and then kill the bullet.
+                ; At this stage, we're gonna just erase the mushroom/etc.  Poison mushrooms
+                ; will simply swap to normal attributes when hit.  They take 2 shots.
+goBoomM         ld c,(ix+1)             ; Poke the YX values first
+                ld b,(ix+2)
+                ld (charPos),bc
+                push ix
+                call eraseChar          ; Clear the mushroom
+                call incScore
+                pop ix
+                jr endBullet
+                
+goBoomP         ld c,(ix+1)             ; Poke the YX values first
+                ld b,(ix+2)
+                ld (charPos),bc
+                ld a,mushclr            ; Store update attribute into location tempA (used by setattr)
+                ld (tempA),a
+                call setAttr            ; Turn poison into normal mushroom (recoloured)
+                ; No score for hitting a poison mushroom (since it doesn't die)
+                
+endBullet       ld (ix+0),swOff         ; Deactivate the bullet
+                ret
+
+; -------------------------------------------------------------------------------------------------
+; READKEYS : Reads the keyboard, stores all key presses into the d register
+; -------------------------------------------------------------------------------------------------
+; Reading keys is done by loading the port # into a, then reading the port using in a,(254). Port 254
+; accesses info in the ULA.  We pass the address lines we want to request in 'a' first.  In this case
+; the ports in the keysTable define the address lines for the various half-keyboard lines.
+;
+; The key bit (returned byte from 'in a,(254)') is checked and if true, stored into the d register.
+;
+; d bits    7  6  5  4  3  2  1  0
+;           up dn lt rt fr -  -  -
+
+readKeys        ld hl,keysTable         ; Set hl to the key table (which contains port and bits)
+                ld d,0                  ; Zero out d.  This will be populated with the keys pressed
+                                        ; info.  Each key is stored in bits 7...3 (as per table)
+                ld b,5                  ; We're going to read 5 keys. Set the loop in b reg
+                ld c,0                  ; Zero out the c register
+                
+readKeyLoop     ld a,(hl)               ; Read the key port from the table
+                in a,(254)              ; Read port 254 (with the a register forming the other
+                                        ; part (address lines) for reading key input)
+                cpl                     ; cpl (complement) inverts the a register result. Bits are
+                                        ; reset when pressed, so invert to make them set.
+                                        
+                inc hl                  ; Read next piece of data - the bit that we need to test for
+                and (hl)                ; 'and(hl)' will mask the value in 'a' (and 0 out the rest)
+                inc hl
+                cp 0                    ; Was the key not pressed?
+                jr z, trynextkey        ; Yup, so we can skip and read next key
+                
+                ld a,d                  ; Read the d register (where we're storing keys pressed)
+                or (hl)                 ; And set the 'pressed' bit in d (which gets passed back
+                                        ; when this routine exits)
+                ld d,a                  ; And store the updated value back into d
+                
+trynextkey      inc hl
+                djnz readKeyLoop        ; Decrement b and repeat if not zero yet
+
+                ret                     ; and finally return.  d register will contain bit values
+                                        ; to indicate what keys had been pressed
+
+; -------------------------------------------------------------------------------------------------------
+;                                       T  H  E    F  L  E  A
+; -------------------------------------------------------------------------------------------------------
+
+
+; -------------------------------------------------------------------------------------------------------
+;                                T  H  E    S  C  O  R  P  I  O  N
+; -------------------------------------------------------------------------------------------------------
 
 ; -------------------------------------------------------------------------------------------------------
 ; GRAPHICS ROUTINES
@@ -310,7 +663,118 @@ eraseChar   ld ix,gfxblank
 getattr     call calcAttrib         ; Get the memory address into hl
             ld a,(hl)               ; grab the attribute value
             ret                     ; and return
-                
+
+; -------------------------------------------------------------------------------------------------------
+; SET SCREEN ATTRIBUTE
+; Store the Y and X at the address 'charPos'. Place the attribute value in address 'tempA'
+; -------------------------------------------------------------------------------------------------------
+setattr     call calcAttrib         ; Get the memory address into hl
+            ld de,tempA
+            ld a,(de)               ; grab the attribute value
+            ld (hl),a
+            ret                     ; and return
+
+; -------------------------------------------------------------------------------------------------------
+; PRINT SCORE
+; Grabs the text data at txtScore, the values at scoreChar and prints the score
+; -------------------------------------------------------------------------------------------------------
+printScore  ld a,2
+            call 5633               ; Set the print to go to the screen first (channel 2 (a))
+                                    ; Note that 1 = lower screen (input area) and 3 = ZX Printer
+            
+            ; Start by setting ASCII chars into the string
+            ld de,scoreChar
+            ld hl,txtScString
+            ld b,6
+setChar     ld a,(de)               ; Get the counter
+            add a,48                ; Character = ascii 48+counter
+            ld (hl),a               ; Update it
+            inc hl
+            inc de
+            djnz setChar            ; And repeat the process for all 6 digits
+            
+printChar   ld de,txtScore          ; Point to the string data
+            ld bc,13                ; 13 characters long (AT Y,X; INK 7; PAPER 0; "000000")
+            call 8252
+            ret
+            
+            
+; -------------------------------------------------------------------------------------------------------
+; VARIOUS GAME ROUTINES
+; -------------------------------------------------------------------------------------------------------
+; INCREASE SCORE
+; Increases the 6 digit score stored under scoreChar by 1.  To increase the score by 10, 100, 1000 then
+; can call one of the labels in here (inTens, incHunds, etc) - BUT - you will need to set ix=scoreChar
+; first.  This routine incScore add's one to the score when called.
+; -------------------------------------------------------------------------------------------------------
+incScore    ld ix,scoreChar         ; Point IX to the score counters
+incOnes     ld a,(ix+5)             ; ONES - increase this value
+            inc a
+            cp 10                   ; Is it 10?
+            jr z, rolloverTen       ; Then we need to increase the 10's counter
+            ld (ix+5),a             ; Otherwise save it
+            ret                     ; and we're done
+            
+rolloverTen xor a
+            ld (ix+5),a             ; Reset the ones counter
+            
+incTens     ld a,(ix+4)             ; TENS - increase this value
+            inc a
+            cp 10                   ; Is it 10?
+            jr z, rolloverHnd       ; Then we need to increase the 100's counter
+            ld (ix+4),a             ; Otherwise save it
+            ret                     ; and we're done
+
+rolloverHnd xor a
+            ld (ix+4),a             ; Reset the 10 counter
+            
+incHunds    ld a,(ix+3)             ; HUNDREDS - increase this value
+            inc a
+            cp 10                   ; Is it 10?
+            jr z, rolloverTho       ; Then we need to increase the 1000's counter
+            ld (ix+3),a             ; Otherwise save it
+            ret                     ; and we're done
+
+rolloverTho xor a
+            ld (ix+3),a             ; Reset the 1000 counter
+            
+incThous    ld a,(ix+2)             ; Thousands - increase this value
+            inc a
+            cp 10                   ; Is it 10?
+            jr z, rolloverTth       ; Then we need to increase the 10000's counter
+            ld (ix+2),a             ; Otherwise save it
+            ret                     ; and we're done
+
+rolloverTth xor a
+            ld (ix+2),a             ; Reset the 1000 counter
+            
+incTenthou  ld a,(ix+1)             ; 10 Thousands - increase this value
+            inc a
+            cp 10                   ; Is it 10?
+            jr z, rolloverHth       ; Then we need to increase the 100000's counter
+            ld (ix+1),a             ; Otherwise save it
+            ret                     ; and we're done
+
+rolloverHth xor a
+            ld (ix+1),a             ; Reset the 10000 counter
+            
+incHundthou ld a,(ix+0)             ; 100 Thousands - increase this value
+            inc a
+            cp 10                   ; Is it 10?
+            jr z, resetScore        ; Then we roll over - we've clocked the score!
+            ld (ix+0),a             ; Otherwise save it
+            ret                     ; and we're done
+            
+resetScore  ld hl,scoreChar         ; Reset the score...  Set hl to our scoreChar counters
+            ld b,6                  ; There are 6 counters
+resValue    xor a
+            ld (hl),a               ; Zero out the counter
+            inc hl
+            djnz resValue           ; And loop
+            ret
+            
+            
+
 ; -------------------------------------------------------------------------------------------------------           
 ; GRAPHICS DATA
 ; Individual graphics appear below.  There are 9 bytes per character.  8 pixel lines, one attribute.
@@ -356,10 +820,19 @@ attPoison         defb    poisonclr
 player          defb    3,16,20                     ; Player (lives, x, y)
 bullet          defb    0,16,19                     ; Bulley (active, x, y) 
 
+; Table for keys (port value, bit test, recordBit (to store keypress if true))
+; Redefine key function should update these values (if we add one)
+keysTable       defb    251,1,128       ; Q key
+                defb    253,1,64        ; A key
+                defb    223,2,32        ; O key
+                defb    223,1,16        ; P key
+                defb    127,4,8         ; M Key
+
 ; -------------------------------------------------------------------------------------------------------
 ; CENTIPEDE
 ; Each segment of a centipede contains an active flag (0 dead,128 on,64 kamikaze),x,y and delta x (+/-)
 ; 128 terminates the list.  This enables the ability to inc or dec the length of the centipede.
+; centipedespeed is a tick counter for motion speed - ie. every x ticks, update the movement
 ; -------------------------------------------------------------------------------------------------------           
 centipede       defb    255,10,0,1                  ; A segment (active, x, y, dx)
                 defb    255,11,0,1
@@ -370,6 +843,7 @@ centipede       defb    255,10,0,1                  ; A segment (active, x, y, d
                 defb    255,16,0,1
                 defb    255,17,0,1
                 defb    128                         ; 128 terminates centipede segment list
+centipedespeed  defb    1                           ; Speed of the centipede
 
 ; -------------------------------------------------------------------------------------------------------
 ; SPIDER
@@ -377,11 +851,13 @@ centipede       defb    255,10,0,1                  ; A segment (active, x, y, d
 ; such as mushrooms. spidermove steps through data for a 'change direction' list used to give it more
 ; interesting movement. 128 terminates. spidertick used to decide when the spider will appear on screen 
 ; (spidertmax = how frequently). 
+; spiderspeed is a tick counter for motion speed - ie. every x ticks, update the movement
 ; -------------------------------------------------------------------------------------------------------           
 spider          defb    255,31,16,128,0
 spiderbg        defb    0,0
 spidertick      defb    0
 spidertmax      defb    64
+spiderspeed     defb    1
 spidermove      defw    randmotion
 randmotion      defb    1,1,0,1,255,255,255,0,1,0,1,1,1,0,0,0,0,255,255,1,1,1,1,255,0,0,1,1,1,0,0,0,0,0
                 defb    1,1,1,255,255,255,255,0,1,0,255,255,1,0,1,0,1,0,255,0,255,0,255,0,1,255,255,1,1
@@ -391,11 +867,13 @@ randmotion      defb    1,1,0,1,255,255,255,0,1,0,1,1,1,0,0,0,0,255,255,1,1,1,1,
 ; FLEA
 ; flea (active, x, y), fleatick controls when come on (like spider, alfs fleatmax). fleadrop points to
 ; data that contains a 'pseudo random' list of whether to drop a mushroom or not (128 terminates list)
+; fleaspeed is a tick counter for motion speed - ie. every x ticks, update the movement
 ; -------------------------------------------------------------------------------------------------------           
 flea            defb    0,10,0
 fleatick        defb    0
 fleatmax        defb    64
 fleadrop        defb    0,0
+fleaspeed       defb    2
 randdrop        defb    1,0,0,0,0,0,0,0,1,0,0,1,0,0,0,1,0,1,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,1,0,0,1,0,0,1
                 defb    1,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,1,0,0,0,1,0,1,0,1,0,0
                 defb    1,0,1,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,1,0,1,0,0,0
@@ -404,17 +882,29 @@ randdrop        defb    1,0,0,0,0,0,0,0,1,0,0,1,0,0,0,1,0,1,0,0,0,0,0,0,0,1,0,1,
 ; -------------------------------------------------------------------------------------------------------
 ; SCORPION
 ; scorpion (active, x, y, dx). bg is used to determine whether use a mushroom or a blank.
+; scorpionspeed is a tick counter for motion speed - ie. every x ticks, update the movement
 ; -------------------------------------------------------------------------------------------------------           
 scorpion        defb    255,0,10,1
 scorpionbg      defb    0,0
 scorpiontick    defb    0
 scorpiontmax    defb    64
+scorpionspeed   defb    2
 
 ; -------------------------------------------------------------------------------------------------------           
 ; VARIOUS:
 ; Data here is used for various parts of the game.
 ; -------------------------------------------------------------------------------------------------------           
-scoreChar       defb    0,0,0,0,0                   ; 5 digit score counters
+scoreChar       defb    0,0,0,0,0,0                 ; 6 digit score counters
 charPos         defb    16,12                       ; Character position (used by drawChar/eraseChar)
 tempX           defb    0                           ; Temporary X storage
 tempY           defb    0                           ; Temporary Y storage
+tempA           defb    0                           ; Temporary attribute used by setattr
+
+; -------------------------------------------------------------------------------------------------------           
+; TEXT DATA FOR PRINTING
+; Text codes for printing simple text strings in game go here...  13 ascii altogether
+; -------------------------------------------------------------------------------------------------------           
+txtScore        defb    22,0,10                     ; AT 0,10
+                defb    16,7,17,0                   ; Ink 7, Paper 0
+txtScString     defb    48,48,48,48,48,48           ; INSERT CHAR CODES HERE (48 + val)
+                
