@@ -550,6 +550,8 @@ endBullet       ld (ix+0),swOff         ; Deactivate the bullet
 ;
 ; d bits    7  6  5  4  3  2  1  0
 ;           up dn lt rt fr -  -  -
+;
+; There is a redefine keys routine later down in the code that can be used
 
 readKeys        ld hl,keysTable         ; Set hl to the key table (which contains port and bits)
                 ld d,0                  ; Zero out d.  This will be populated with the keys pressed
@@ -634,7 +636,7 @@ calcAttrib  ld bc,(charPos)
 ; -------------------------------------------------------------------------------------------------------
 ; DRAW A CHARACTER
 ; Make sure that ix = Graphics data address, Y and X are stored in two bytes at address 'charPos' first
-; (To erase a graphic, use ix = gfxblank - eraseChar routine does this for you)
+; (To erase a graphic, use ix = gfxblank - however 'eraseChar' routine does this for you)
 ; -------------------------------------------------------------------------------------------------------
 drawChar    call calcScreen ; Get the screen address into hl
             
@@ -675,6 +677,29 @@ setattr     call calcAttrib         ; Get the memory address into hl
             ret                     ; and return
 
 ; -------------------------------------------------------------------------------------------------------
+; CLEAR SCREEN
+; Wipes the screen, note that using a routine for CLS and not the ROM version means could replace this
+; simple blanking routine with other 'effect' style screen clears
+; -------------------------------------------------------------------------------------------------------
+cls         ld hl, 16384            ; Set HL to graphics location
+            ld de, 16385            ; Set DE to next byte
+            ld bc, 6143             ; Set BC to the length of the screen memory
+            ld (hl),0               ; Set the first byte to 0 (blank)
+            ldir                    ; Loop - LDIR ld (HL),(DE), incs both, and loops BC times
+            
+            ld hl, 22528            ; Same process for the Attributes
+            ld de, 22529
+            ld bc, 767
+            ld (hl),7               ; Set to 7 (white ink, black paper)
+            ldir
+            ret                     ; and we're finished
+
+
+; -------------------------------------------------------------------------------------------------------
+; VARIOUS GAME ROUTINES
+; -------------------------------------------------------------------------------------------------------
+
+; -------------------------------------------------------------------------------------------------------
 ; PRINT SCORE
 ; Grabs the text data at txtScore, the values at scoreChar and prints the score
 ; -------------------------------------------------------------------------------------------------------
@@ -698,15 +723,32 @@ printChar   ld de,txtScore          ; Point to the string data
             call 8252
             ret
             
+; -------------------------------------------------------------------------------------------------------
+; PRINT "GAME OVER"
+; Prints text data at txtGameOver
+; -------------------------------------------------------------------------------------------------------
+printGO     ld a,2
+            call 5633               ; Set the print to go to the screen first (channel 2 (a))
+                                    ; Note that 1 = lower screen (input area) and 3 = ZX Printer
+            ld de,txtGameOver       ; Point to the string data
+            ld bc,16                ; 16 characters long (AT Y,X; INK 6; PAPER 2; "GAME OVER")
+            call 8252
+            ret
             
 ; -------------------------------------------------------------------------------------------------------
-; VARIOUS GAME ROUTINES
-; -------------------------------------------------------------------------------------------------------
 ; INCREASE SCORE
-; Increases the 6 digit score stored under scoreChar by 1.  To increase the score by 10, 100, 1000 then
-; can call one of the labels in here (inTens, incHunds, etc) - BUT - you will need to set ix=scoreChar
-; first.  This routine incScore add's one to the score when called.
+; Increases the 6 digit score stored under scoreChar.  A collection of short routines added for adding
+; 1 (incScore),10 (incScoreT),100 (incScoreH) to the score.
 ; -------------------------------------------------------------------------------------------------------
+; Add 100 to score
+incScoreH   ld ix,scoreChar
+            jr incHunds
+            
+; Add 10 to score
+incScoreT   ld ix,scoreChar
+            jr incTens
+            
+; Add 1 to score
 incScore    ld ix,scoreChar         ; Point IX to the score counters
 incOnes     ld a,(ix+5)             ; ONES - increase this value
             inc a
@@ -772,8 +814,76 @@ resValue    xor a
             inc hl
             djnz resValue           ; And loop
             ret
+ 
+; -------------------------------------------------------------------------------------------------------           
+; REDEFINE KEYS
+; Handy routine to redefine keys for the game.
+; -------------------------------------------------------------------------------------------------------
+redefKeys   call cls                ; Clear the screen
+            ld hl,txtRedefKeys      ; Print the message "redefine keys" to begin
+            call printStr           ; (uses our printing routine for a string (255 termination byte))
+            call shortBlip          ; Quick beep
+            ld ix,keysTable         ; load ix to point to our keys table
+            ld hl,txtRedefUP        ; load hl to point to our messages (ie. what key to define)
+            ld b,5                  ; There are 5 keys (U,D,L,R,F)
+redfLoop    push bc                 ; Quickly push these two registers (they get altered by other code)
+            push ix
+            call printStr           ; Print out key message
+            inc hl                  ; and inc hl to the next key message
+waitForKey  ld de,chanTable         ; point de to a channel table used by the keyboard input
+            ld b,8                  ; There are 8 channels (in the chanTable) to check
+scanKeys    ld a,(de)               ; Read the channel entry from chanTable
+            in a,(254)              ; Read the port to see if anything pressed
+            cpl                     ; Invert the value returned in a
+            and 31                  ; mask the bottom 5 bytes to see if a key was pressed
+            cp 0                    ; Was a key pressed? (ie. the value won't be 0)
+            jr nz, okRedef          ; Yup, lets redefine that key
+            inc de
+            djnz scanKeys           ; If not, lets keep scanning the next channel
+            jr waitForKey           ; Once done, we just go back and scan again
+okRedef     push af                 ; Yup - a key was pressed.  Lets push all our registers to back them up
+            push de
+            push hl
+            call shortBlip          ; Make a short sound.  This gives the user time to release a key
+            pop hl                  ; Restore our registers
+            pop de
+            pop af
+            pop ix                  ; And don't forget our first push that we did for the key loop
+            pop bc
+            ld (ix+1),a             ; Store the bit value for key
+            ld a,(de)               ; Get the channel it was read from
+            ld (ix),a               ; Store this value
+            inc ix                  ; and move to next key entry
+            inc ix
+            inc ix
+            djnz redfLoop           ; And go back to loop through the keys
+            ret                     ; Once done all 5, exit
             
+
+; This routine prints text data to the screen, byte by byte.  Means we can just print any length without
+; calculating bytes, etc.  Text data just has to terminate with a 255 byte value
+printStr    push hl                 ; When calling, pass hl = address of text data
+            ld a,2
+            call 5633               ; Set print area to upper screen
+            pop hl                  ; Restore hl pointer
+strLoop     ld a,(hl)               ; Loop through each byte
+            cp 255                  ; Have we reached the end of the data yet?
+            ret Z                   ; Yup, we can exit this routine
+            push hl                 ; Otherwise lets quickly push hl
+            rst 16                  ; send the print code (in a) to the screen
+            pop hl
+            inc hl                  ; Go to next byte
+            jr strLoop              ; and repeat until done
             
+; Simple beep tone used when keys are redefined.  Add's a pause to the code so that it doesn't jump
+; quickly to next key (and annoy heavy fingered gamers)
+shortBlip   ld hl,1000              ; Load tone into hl
+            ld de,60                ; Load length into de
+            call 949                ; Call rom routine to 'beep'
+            ret
+; -------------------------------------------------------------------------------------------------------           
+; DATA / INFORMATION
+; -------------------------------------------------------------------------------------------------------           
 
 ; -------------------------------------------------------------------------------------------------------           
 ; GRAPHICS DATA
@@ -811,7 +921,7 @@ attscorpionL      defb    67
 attPoison         defb    poisonclr
 
 ; -------------------------------------------------------------------------------------------------------           
-; GAME DATA:
+; GAME DATA
 ; Variables, values and settings for all items within the game.
 ; -------------------------------------------------------------------------------------------------------           
 ; -------------------------------------------------------------------------------------------------------
@@ -827,6 +937,10 @@ keysTable       defb    251,1,128       ; Q key
                 defb    223,2,32        ; O key
                 defb    223,1,16        ; P key
                 defb    127,4,8         ; M Key
+
+; Define a list of all the ports used to read the keyboard - used in redefine keys routines
+chanTable       defb    254,253,251,247,239,223,191,127
+
 
 ; -------------------------------------------------------------------------------------------------------
 ; CENTIPEDE
@@ -902,9 +1016,50 @@ tempA           defb    0                           ; Temporary attribute used b
 
 ; -------------------------------------------------------------------------------------------------------           
 ; TEXT DATA FOR PRINTING
-; Text codes for printing simple text strings in game go here...  13 ascii altogether
+; Text codes for printing simple text strings in game go here...
 ; -------------------------------------------------------------------------------------------------------           
-txtScore        defb    22,0,10                     ; AT 0,10
+; Print Score at top of screen (13 bytes)
+txtScore        defb    22,0,13                     ; AT 0,13
                 defb    16,7,17,0                   ; Ink 7, Paper 0
-txtScString     defb    48,48,48,48,48,48           ; INSERT CHAR CODES HERE (48 + val)
+txtScString     defb    48,48,48,48,48,48           ; INSERT NUMBER CHAR CODES HERE (48 + val)
+
+; Print Game over at center of screen (16 bytes)
+txtGameOver     defb    22,0,0                      ; AT 10,10
+                defb    16,6,17,2                   ; Ink 6, Paper 2
+                defm    /GAME OVER/                 ; "GAME OVER"
+
+; Title for 'redefine keys' screen (uses 255 to terminate.  See key redefine routine for more...)
+txtRedefKeys    defb    22,0,13                     ; AT 0,13
+                defb    16,7,17,2                   ; Ink 7, Paper 2
+                defm    /DEFINE/                    ; "DEFINE"
+                defb    22,1,14                     ; AT 1,14 (next line down)
+                defbm   /KEYS/                      ; "KEYS"
+                defb    255                         
+
+; Individual text per keypress when defining keys.  Note use of 255 to signal end of each line of text
+; means we can redefine the keys using a continuous loop without individual need for knowing bytes
+txtRedefUP      defb    22,3,14
+                defb    16,7,17,0
+                defm    /UP/
+                defb    255
+                
+txtRedefDN      defb    22,5,14
+                defb    16,7,17,0
+                defm    /DOWN/
+                defb    255
+                
+txtRedefLT      defb    22,7,14
+                defb    16,7,17,0
+                defm    /LEFT/
+                defb    255
+                
+txtRedefRT      defb    22,9,14
+                defb    16,7,17,0
+                defm    /RIGHT/
+                defb    255
+                
+txtRedefFR      defb    22,11,14
+                defb    16,7,17,0
+                defm    /FIRE/
+                defb    255
                 
