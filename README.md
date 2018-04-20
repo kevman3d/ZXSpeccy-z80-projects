@@ -3,6 +3,9 @@ You can consider this repository as being an ongoing collection of code examples
 
 # FILES
 The following is an index of the files in this repository and will be updated as new files are added.
+## Centipede source code
+- **centipede_complete_game.asm** is the WIP final game code (will be updated as work progresses)
+- **centipede_WIP_200418.sna** : WIP - ZX Spectrum snapshot (.sna) to load and try (20-04-18).
 ## Utilities and tools
 Non-spectrum tools, written to assist the development process and shave off some time.
 
@@ -32,8 +35,6 @@ Centiblock carries on from the previous centipede example (which was a self-lear
 - **playerdemo_centiblock.sna** : ZX Spectrum snapshot (.sna) to load and run the player code.
 - **fleaDemo_centiblock.sna** : ZX Spectrum snapshot (.sna) to load and run the flea code.
 - **scorpionDemo_centiblock.sna** : ZX Spectrum snapshot (.sna) to load and run the scorpion code
-## Centipede source code
-The file **centipede_complete_game.asm** is the WIP final game code.  This is currently incomplete, but will be updated as regularly as possible until its done.  At this stage its literally a copy-paste from the same files in Centiblock with a splattering of graphics and fixing bugs/typo's, etc.  More to come...
 # Tools
 To work with assembler code, especially when developing for the ZX Spectrum, I made use of the following:
 ## ZEUS Windows IDE (DesignDesign).
