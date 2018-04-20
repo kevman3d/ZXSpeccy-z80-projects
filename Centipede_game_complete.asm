@@ -25,7 +25,10 @@ swOff           equ 0   ; generic off
 swOn            equ 255 ; generic on
 swKamikaze      equ 64  ; centipede kamikaze
 movRight        equ 1   ; generic move right value
-screenH         equ 24  ; Bottom of screen
+screenH         equ 24  ; Screen height (max Y + 1)
+screenW         equ 32  ; Screen Width (max X + 1)
+screenT         equ 1   ; Min screen value (ie. for game chars)
+screenB         equ 1   ; Screen border gutter (sides)
 playerMin       equ 18  ; Highest the player ship can go
 
 ; -------------------------------------------------------------------------------------------------------
@@ -70,7 +73,7 @@ kamikaze        ld a,(ix+2)             ; Get the Y location
                 cp screenH              ; Is it at the bottom of the screen?
                 ret nz                  ; Nope - so we can now exit - we've moved the segment...
                 
-                ld (ix+2),0             ; Otherwise lets reset the centipede back to the top
+                ld (ix+2),screenT       ; Otherwise lets reset the centipede back to the top
                 ld (ix+0),255           ; Reset the active flag to normal
                 ret                     ; and we're done.
                 
@@ -176,6 +179,9 @@ movecentipede   ld de,centipede         ; set up the pointer to the centipede da
 clearloop       ld a,(ix+0)             ; test to see if we've reached the end of the data
                 cp 128
                 jr z, updateSegment     ; go down to move the segments
+        
+                cp swOff        ; Is the segment deactive?
+                jr z,nxtSegmentC    ; Yup, we can skip over this segment            
                 
                 ld c,(ix+1)             ; Poke the YX values first
                 ld b,(ix+2)
@@ -184,7 +190,7 @@ clearloop       ld a,(ix+0)             ; test to see if we've reached the end o
                 push ix                 ; Store the IX (pointing to centipede)
                 call eraseChar          ; Clear the segment
                 pop ix                  ; Restore IX
-                inc ix                  ; go to the next segment
+nxtSegmentC     inc ix                  ; go to the next segment
                 inc ix
                 inc ix
                 inc ix
@@ -196,8 +202,12 @@ updateSegment   pop de                  ; Retrieve the address back into de
 moveloop        ld a,(ix+0)             ; test to see if we've reached the end of the data
                 cp 128
                 jr z, drawcentipede     ; go down to move the segments
+
+                cp swOff                ; Is the segment deactive?
+                jr z,nxtSegmentM        ; Yup, we can skip over this segment            
+
                 call centsegment        ; Move the segments
-                inc ix                  ; go to the next segment
+nxtSegmentM     inc ix                  ; go to the next segment
                 inc ix
                 inc ix
                 inc ix
@@ -208,6 +218,10 @@ drawcentipede   pop de                  ; Retrieve the address back into de
 drawloop        ld a,(ix+0)             ; test to see if we've reached the end of the data
                 cp 128
                 ret z                   ; We're all done!  We can exit
+
+                cp swOff                ; Is the segment deactive?
+                jr z,nxtSegmentD        ; Yup, we can skip over this segment            
+ 
 
                 ld c,(ix+1)             ; Poke the YX values first
                 ld b,(ix+2)
@@ -233,12 +247,45 @@ centLGfx        ld ix,gfxcentL          ; Set the graphics to left
 drawSegment     call drawChar           ; draw the segments
 
                 pop ix                  ; Restore the ix back to the centipede data
-                inc ix                  ; go to the next segment
+nxtSegmentD     inc ix                  ; go to the next segment
                 inc ix
                 inc ix
                 inc ix
                 jr drawloop
 
+
+; -------------------------------------------------------------------------------------------------------
+; KILLCENTIPEDE : Checks the centipede segments against the charPos values.  Once found, disable the 
+; segment
+; -------------------------------------------------------------------------------------------------------
+
+killcentipede   ld ix,centipede         ; set up the pointer to the centipede data
+killloop        ld a,(ix+0)             ; test to see if we've reached the end of the data
+                cp 128
+                ret z                   ; If yes, exit
+
+                ld e,(ix+2)             ; Get the X/Y values into de
+                ld d,(ix+1)
+                ld bc,(charPos)         ; Get the X/Y position
+                
+                ld a,e                  ; Get the Y
+                cp b                    ; Compare it with the charPos Y
+                jr nz, nextSeg          ; Nope, just check the next segment
+                
+                ld a,d                  ; Get the X
+                cp c                    ; Compare it with charPos X
+                jr nz, nextSeg          ; Nope, just check the next segment
+                
+                ; Otherwise - its a MATCH!
+                ld (ix+0),swOff         ; Deactivate the segment
+                ret                     ; and exit
+                
+nextSeg         inc ix                  ; go to the next segment
+                inc ix
+                inc ix
+                inc ix
+                jr killloop
+                
 ; -------------------------------------------------------------------------------------------------------
 ;                                    T  H  E    P  L  A  Y  E  R
 ; -------------------------------------------------------------------------------------------------------
@@ -248,7 +295,7 @@ drawSegment     call drawChar           ; draw the segments
 ; Note that as this is a single entity, all processing is done in the one function.
 
 moveplayer      ; BULLET : Erase the bullet if active
-                ld ix,bullet        ; Set to bulletData quickly
+                ld ix,bullet            ; Set to bulletData quickly
                 ld a,(ix+0)             ; Is the bullet actually active?
                 cp swOff
                 jr z, goplayer          ; Yup, well, just skip over and do the player
@@ -267,11 +314,11 @@ goplayer        ld ix,player            ; Lets point IX at the player data
                 ld a,(ix+2)             ; Read the segment's Y location
                 ld (tempY),a            ; Store the Y location temporarily
                 
-                ; Otherwise, clear the player from the screen first             ; backup ix (since eraseChar will change it)
+                ; Otherwise, clear the player from the screen first
                 ld c,(ix+1)             ; Poke the YX values first
                 ld b,(ix+2)
                 ld (charPos),bc
-        push ix
+                push ix                 ; back up ix (erasechar will change it)
                 call eraseChar          ; Clear the player
                 pop ix                  ; restore ix
 
@@ -432,13 +479,13 @@ stopXr          ld a,(tempX)            ; If we hit mushroom, lets reset the pos
                 ld (ix+1),a
                 
 okcheckrt       ld a,(ix+1)
-                cp 31                   ; Is the X at the edge of the screen
+                cp screenW              ; Is the X at the edge of the screen
                 jr nz, pressedfire      ; No, we're all good - jump to fire press check
                 
                 ld a,(tempX)            ; Otherwise just reset the X value
                 ld (ix+1),a
                 
-pressedfire     ld ix,bullet        ; First, point ix to the bulletdata
+pressedfire     ld ix,bullet            ; First, point ix to the bulletdata
                 call readKeys           ; Call the readKeys fucntion (checkscn screws d register)
                 bit 3,d
                 jr z, movebullet        ; Nope, just skip over and check if we can move the bullet.
@@ -450,7 +497,7 @@ pressedfire     ld ix,bullet        ; First, point ix to the bulletdata
                 
                 ; Set up a new bullet
                 ld (ix+0),swOn          ; Activate the bullet
-                ld hl,player        ; Get the players details and set bullet
+                ld hl,player            ; Get the players details and set bullet
                 inc hl
                 ld a,(hl)               ; Get the players X
                 ld (ix+1),a             ; and set the bullet to the same
@@ -471,11 +518,11 @@ movebullet      ld a,(ix+0)             ; Check if bullet is active already
                 cp 0                    ; Top of screen reached?
                 jr nz, notfired         ; Nope, we can then skip down to draw ship and bullet
                 
-                ld (ix+0),swOff             ; Disable bullet (out of top of screen)
+                ld (ix+0),swOff         ; Disable bullet (out of top of screen)
                 
                 ; DRAW PLAYER SHIP
 notfired        ld ix,player
-        ld c,(ix+1)             ; Poke the YX values first
+                ld c,(ix+1)             ; Poke the YX values first
                 ld b,(ix+2)
                 ld (charPos),bc
                 ld ix,gfxplayer        ; Set IX to the graphic
@@ -483,7 +530,7 @@ notfired        ld ix,player
                 
                 ; DRAW BULLET - finish up with checking for bullet hits, either drawing the bullet or
                 ; drawing an explosion/fx instead and deactivating the bullet.
-                ld ix,bullet        ; Set to bulletData quickly
+                ld ix,bullet            ; Set to bulletData quickly
                 ld a,(ix+0)             ; Is the bullet actually active?
                 cp swOff
                 ret z                   ; Nope - safe to exit
@@ -498,7 +545,6 @@ notfired        ld ix,player
                 cp mushclr              ; Was it a mushroom?
                 jr z, goBoomM           ; Yup, go boomM (mushroom gets erased)
                 
-                ; Did we hit a mushroom?  If so, we just need to destroy it
                 ld c,(ix+1)             ; Poke the YX values first
                 ld b,(ix+2)
                 ld (charPos),bc
@@ -506,10 +552,37 @@ notfired        ld ix,player
                 call getattr            ; grab the screen colour
                 pop ix
                 cp poisonclr            ; Was it a poison mushroom?
-                jr z, goBoomP           ; Yup, go boomP (poison gets hit, changes mushroom colour)
+                jr z, goBoomP           ; Yup, go boomP (poison gets hit, changes to mushroom colour)
+                
+                ; Did we hit the centipede?  If so, little more complex - disable centipede
+                ; segment, replacing it with a mushroom.
+                ld c,(ix+1)             ; Poke the YX values first
+                ld b,(ix+2)
+                ld (charPos),bc
+                push ix
+                call getattr            ; grab the screen colour
+                pop ix
+                cp centclr              ; Was it the centipede
+                jr nz, drawBullet       ; Nope, just redraw the bullet
+                
+                ; Detect which segment was hit and disable it
+                push ix
+                call killcentipede      ; Routine takes care of this
+                pop ix
+                
+                ; Replace location with mushroom and add ten to the score
+                ld c,(ix+1)             ; Poke the YX values first
+                ld b,(ix+2)
+                ld (charPos),bc
+                push ix
+                ld ix,gfxmushroom       ; Draw a mushroom
+                call drawchar
+                call incScoreT          ; Add 10 to the score
+                pop ix
+                jr endBullet            ; We're done... Disable bullet and exit
                 
                 ; Draw the bullet to screen
-                ld c,(ix+1)             ; Poke the YX values first
+drawBullet      ld c,(ix+1)             ; Poke the YX values first
                 ld b,(ix+2)
                 ld (charPos),bc
                 ld ix,gfxbullet         ; Set IX to the bullet graphic
@@ -852,7 +925,7 @@ okRedef     push af                 ; Yup - a key was pressed.  Lets push all ou
             pop bc
             ld (ix+1),a             ; Store the bit value for key
             ld a,(de)               ; Get the channel it was read from
-            ld (ix),a               ; Store this value
+            ld (ix+0),a               ; Store this value
             inc ix                  ; and move to next key entry
             inc ix
             inc ix
@@ -1026,40 +1099,39 @@ txtScString     defb    48,48,48,48,48,48           ; INSERT NUMBER CHAR CODES H
 ; Print Game over at center of screen (16 bytes)
 txtGameOver     defb    22,0,0                      ; AT 10,10
                 defb    16,6,17,2                   ; Ink 6, Paper 2
-                defm    /GAME OVER/                 ; "GAME OVER"
+                defm    "GAME OVER"                 ; "GAME OVER"
 
 ; Title for 'redefine keys' screen (uses 255 to terminate.  See key redefine routine for more...)
 txtRedefKeys    defb    22,0,13                     ; AT 0,13
                 defb    16,7,17,2                   ; Ink 7, Paper 2
-                defm    /DEFINE/                    ; "DEFINE"
+                defm    "DEFINE"                    ; "DEFINE"
                 defb    22,1,14                     ; AT 1,14 (next line down)
-                defbm   /KEYS/                      ; "KEYS"
+                defm   "KEYS"                      ; "KEYS"
                 defb    255                         
 
 ; Individual text per keypress when defining keys.  Note use of 255 to signal end of each line of text
 ; means we can redefine the keys using a continuous loop without individual need for knowing bytes
 txtRedefUP      defb    22,3,14
                 defb    16,7,17,0
-                defm    /UP/
+                defm    "UP"
                 defb    255
                 
 txtRedefDN      defb    22,5,14
                 defb    16,7,17,0
-                defm    /DOWN/
+                defm    "DOWN"
                 defb    255
                 
 txtRedefLT      defb    22,7,14
                 defb    16,7,17,0
-                defm    /LEFT/
+                defm    "LEFT"
                 defb    255
                 
 txtRedefRT      defb    22,9,14
                 defb    16,7,17,0
-                defm    /RIGHT/
+                defm    "RIGHT"
                 defb    255
                 
 txtRedefFR      defb    22,11,14
                 defb    16,7,17,0
-                defm    /FIRE/
+                defm    "FIRE"
                 defb    255
-                
