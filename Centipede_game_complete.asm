@@ -596,7 +596,8 @@ goBoomM         ld c,(ix+1)             ; Poke the YX values first
                 ld b,(ix+2)
                 ld (charPos),bc
                 push ix
-                call eraseChar          ; Clear the mushroom
+                call eraseChar          ; Clear the mushroom - we can replace this at a later
+                                        ; time with an 'explosion' effect of some kind.
                 call incScore
                 pop ix
                 jr endBullet
@@ -655,10 +656,111 @@ trynextkey      inc hl
                 ret                     ; and finally return.  d register will contain bit values
                                         ; to indicate what keys had been pressed
 
+
 ; -------------------------------------------------------------------------------------------------------
 ;                                       T  H  E    F  L  E  A
 ; -------------------------------------------------------------------------------------------------------
+; -------------------------------------------------------------------------------------------------
+; DROPFLEA : Move the flea down, leave either a mushroom or eat (wipe) any mushroom in the way
+; -------------------------------------------------------------------------------------------------
+; Note that this is a single entity. We erase, more and draw the flea in the one routine
+dropflea        ld ix,flea              ; Lets point IX at the flea data
+                ld a,(ix+0)             ; First check if the flea is actually active
+                cp swOff
+                ret z                   ; Nope, we can just exit
+                    
+                ; Check on our 'pseudo-random' mushroom drop
+                ld hl,(fleadrop)        ; Get location
+                ld a,(hl)               ; Grab the value of the random drop
+                cp 128                  ; Are we at the end of the data yet?
+                jr nz, selectDrop       ; No, then lets determine if we drop a mushroom
+                        
+                ld hl,randdrop          ; Reset the loop
+                ld (fleadrop),hl
+                ld a,(hl)               ; and grab the first value again
 
+selectDrop      cp swOff
+                jr z, eatBG             ; If it was 0, we wipe the BG (erase the flea)
+                
+                ; Else we're drawing a mushroom here
+                ld c,(ix+1)             ; Poke the YX values first
+                ld b,(ix+2)
+                ld (charPos),bc
+                push ix
+                push hl
+                ld ix,gfxmushroom
+                call drawChar          ; Draw the mushroom
+                pop hl
+                pop ix
+                jr goflea
+
+                ; Erase the flea - leaves empty space (ie. 'eats' mushrooms)
+eatBG           ld c,(ix+1)             ; Poke the YX values first
+                ld b,(ix+2)
+                ld (charPos),bc
+                push ix
+                push hl
+
+                call eraseChar          ; Clear the background/mushroom
+                pop hl
+                pop ix
+
+goflea          ; Move our 'pseudo random' table pointer
+                inc hl
+                ld(fleadrop),hl
+                
+                ; move flea
+                ld a,(ix+2)             ; Select Y
+                inc a                   ; Move it down
+                ld (ix+2),a
+                cp 24                   ; Is it at the bottom?
+                jr nz, drawFlea         ; Nope, we're safe to draw the flea
+                        
+                ld (ix+0),0             ; disable the flea
+                ld (ix+2),screenT       ; Reset the Y to the top of the screen
+                ret                     ; and exit
+                
+drawFlea        ; Draw flea
+                ld c,(ix+1)             ; Poke the YX values first
+                ld b,(ix+2)
+                ld (charPos),bc
+                ld ix,gfxflea
+                call drawChar          ; Draw the flea graphic
+                ret
+
+; -------------------------------------------------------------------------------------------------
+; THEFLEA : this controls the tick counter, as well as setting up the flea and activating it
+; -------------------------------------------------------------------------------------------------
+theflea         ld ix,flea
+                ld a,(ix+0)             ; Check to see if the flea is currently active.
+                cp 0                    
+                jr z, fleatickUpd       ; If not, we'll loop through the tick counter code
+                call dropflea           ; Call the code to drop the flea
+                ret
+            
+fleatickUpd     ld de,fleatick
+                ld a,(de)               ; Get the tick counter
+                inc a                   ; and increment it
+                ld (de),a               ; update the tick counter
+                ld hl,fleatmax
+                cp (hl)                 ; Check to see if we need to add a flea
+                jr z, addFlea
+                ret                     ; Otherwise exit
+                
+addFlea         ; Lets add a flea
+                ld ix,player
+                ld a,(ix+1)             ; Get the player X
+                
+                ; Set the flea info
+                ld ix,flea
+                ld (ix+0),255           ; Activate flea
+                ld (ix+1),a             ; Set the flea above the player location
+                ld (ix+2),screenT       ; Set to top of screen
+                
+                ; Reset the counter
+                xor a
+                ld (de),a
+                ret
 
 ; -------------------------------------------------------------------------------------------------------
 ;                                T  H  E    S  C  O  R  P  I  O  N
@@ -1059,7 +1161,7 @@ randmotion      defb    1,1,0,1,255,255,255,0,1,0,1,1,1,0,0,0,0,255,255,1,1,1,1,
 flea            defb    0,10,0
 fleatick        defb    0
 fleatmax        defb    64
-fleadrop        defb    0,0
+fleadrop        defw    randdrop
 fleaspeed       defb    2
 randdrop        defb    1,0,0,0,0,0,0,0,1,0,0,1,0,0,0,1,0,1,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,1,0,0,1,0,0,1
                 defb    1,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,1,0,0,0,1,0,1,0,1,0,0
@@ -1135,3 +1237,4 @@ txtRedefFR      defb    22,11,14
                 defb    16,7,17,0
                 defm    "FIRE"
                 defb    255
+                
