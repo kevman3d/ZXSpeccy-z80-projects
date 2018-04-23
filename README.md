@@ -4,8 +4,9 @@ You can consider this repository as being an ongoing collection of code examples
 # FILES
 The following is an index of the files in this repository and will be updated as new files are added.
 ## Centipede source code
-- **centipede_complete_game.asm** is the WIP final game code (will be updated as work progresses)
-- **centipede_WIP_200418.sna** : WIP - ZX Spectrum snapshot (.sna) to load and try (20-04-18).
+- **centipede_complete_game.asm** : WIP full game code (updated as work progresses - sna/mp4 added per update)
+- **centipede_WIP_200418.sna** : WIP - ZX Spectrum snapshot (.sna) (20-04-18). Player/Centipede/Score/Bullet functionality.
+- **centipede_WIP_230418.sna** : WIP - ZX Spectrim snapshot (.sna) (23-04-18). Additional 'flea' added
 ## Utilities and tools
 Non-spectrum tools, written to assist the development process and shave off some time.
 
