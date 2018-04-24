@@ -6,6 +6,12 @@
 ; my roots as the saying goes. And as a resource for the ZX Spectrum enthusiasts looking for sample code
 ; to learn from.
 ;
+; Note that all the routines that are called to control elements in the game (ie the ones to call in
+; a game loop) have names prefixed with 'r_'
+;
+; This game incorporates a pseudo number generator sourced from cpcwiki, with some minor tweaks:
+; http://www.cpcwiki.eu/forum/programming/pseudo-random-number-generation/
+;
 ; -------------------------------------------------------------------------------------------------------
 
 ; Defined labels to make things more 'readable' in our code, and also easy to tweak globally of course
@@ -168,11 +174,10 @@ centnodown      ld a,(tempY)            ; Otherwise lets reset the Y location (e
                 ret                     ; and we're done...
 
 ; -------------------------------------------------------------------------------------------------------
-; MOVECENTIPEDE : This routine clears, moves and redraws the centipede.  Relies on the centsegment
+; * MOVECENTIPEDE : This routine clears, moves and redraws the centipede.  Relies on the centsegment
 ; routine to move and update each segments positions.
 ; -------------------------------------------------------------------------------------------------------
-
-movecentipede   ld de,centipede         ; set up the pointer to the centipede data
+r_movecentipede ld de,centipede         ; set up the pointer to the centipede data
                 push de                 ; store this in the stack so we can retrieve it
                 ld ixh,d
                 ld ixl,e
@@ -290,11 +295,10 @@ nextSeg         inc ix                  ; go to the next segment
 ;                                    T  H  E    P  L  A  Y  E  R
 ; -------------------------------------------------------------------------------------------------------
 ; -------------------------------------------------------------------------------------------------
-; MOVEPLAYER : Calculate and move the player ship.
+; * MOVEPLAYER : Calculate and move the player ship.
 ; -------------------------------------------------------------------------------------------------
 ; Note that as this is a single entity, all processing is done in the one function.
-
-moveplayer      ; BULLET : Erase the bullet if active
+r_moveplayer    ; BULLET : Erase the bullet if active
                 ld ix,bullet            ; Set to bulletData quickly
                 ld a,(ix+0)             ; Is the bullet actually active?
                 cp swOff
@@ -308,6 +312,9 @@ moveplayer      ; BULLET : Erase the bullet if active
 
 goplayer        ld ix,player            ; Lets point IX at the player data
                 
+                ; ------------------------------------------------------------------------------------
+                ; Collision check : If it can kill the player, put it here before we clear the player
+                ; ------------------------------------------------------------------------------------
                 ; Firstly, lets backup the X and Y location
                 ld a,(ix+1)             ; Read the segment's X location into the 'a' register
                 ld (tempX),a            ; Store the X location temporarily into a memory location
@@ -534,7 +541,10 @@ notfired        ld ix,player
                 ld a,(ix+0)             ; Is the bullet actually active?
                 cp swOff
                 ret z                   ; Nope - safe to exit
-                
+
+                ; ------------------------------------------------------------------------------------
+                ; Collision checks - Add anything new in here if we can 'shoot it'
+                ; ------------------------------------------------------------------------------------
                 ; Did we hit a mushroom?  If so, we just need to destroy it
                 ld c,(ix+1)             ; Poke the YX values first
                 ld b,(ix+2)
@@ -580,6 +590,7 @@ notfired        ld ix,player
                 call incScoreT          ; Add 10 to the score
                 pop ix
                 jr endBullet            ; We're done... Disable bullet and exit
+                ; ------------------------------------------------------------------------------------
                 
                 ; Draw the bullet to screen
 drawBullet      ld c,(ix+1)             ; Poke the YX values first
@@ -729,9 +740,9 @@ drawFlea        ; Draw flea
                 ret
 
 ; -------------------------------------------------------------------------------------------------
-; THEFLEA : this controls the tick counter, as well as setting up the flea and activating it
+; * THEFLEA : this controls the tick counter, as well as setting up the flea and activating it
 ; -------------------------------------------------------------------------------------------------
-theflea         ld ix,flea
+r_theflea       ld ix,flea
                 ld a,(ix+0)             ; Check to see if the flea is currently active.
                 cp 0                    
                 jr z, fleatickUpd       ; If not, we'll loop through the tick counter code
@@ -765,7 +776,170 @@ addFlea         ; Lets add a flea
 ; -------------------------------------------------------------------------------------------------------
 ;                                T  H  E    S  C  O  R  P  I  O  N
 ; -------------------------------------------------------------------------------------------------------
+; -------------------------------------------------------------------------------------------------
+; MOVESCORPION : Move the scorpion, poison any mushrooms it passes over
+; -------------------------------------------------------------------------------------------------
+; Note that as this is a single entity, all processing is done in the one function.
+movescorpion    ld ix,scorpion          ; Lets point IX at the flea data
+                ld a,(ix+0)             ; First check if the scorpion is actually active
+                cp swOff
+                ret z                   ; Nope, we can just exit
 
+erasescorpion   ; Else lets clear the scorpion
+                ld c,(ix+1)             ; Poke the YX values first
+                ld b,(ix+2)
+                ld (charPos),bc
+                push ix
+                ld ix,(scorpionerase)   ; Grab BG element
+                ld a,(scorpionerclr)    ; Grab BG colour
+                ld (tempA),a
+                call drawChar           ; Erase the scorpion
+                call setattr            ; Replace the attribute
+                pop ix
+
+updatescorpion  ld a,(ix+3)             ; Get the X direction
+                cp 1                    ; Is it moving right?
+                jr z, scorpionR         ; If so, go and move it right
+                
+                ; The scorpion can only go one of two ways so assume its left
+                ld a,(ix+1)
+                dec a
+                ld (ix+1),a
+                and 224                 ; Before we continue, lets see if its exited the screen
+                jp nz, flipscorpion     ; If it has, lets disable the scorpion and flip the direction
+                
+                ld c,(ix+1)             ; Poke the YX values first
+                ld b,(ix+2)
+                ld (charPos),bc
+                push ix
+                call getattr            ; grab the screen colour to see if it was a mushroom
+                ld (scorpionerclr),a    ; Store the colour to the erase colour for now
+                pop ix
+                
+                ; Check to see if we need to poison a mushroom
+                cp mushclr              ; Was it a mushroom
+                jr z, setpoisonmushy    ; Yes, then lets set the mushroom to poison
+                
+                cp poisonclr            ; was it already a poison mushroom?  In which case make sure we draw the same thing
+                jr z, setpoisonmushy    ; Yup, just set the mushroom as poison (ie no change)
+
+                ; If no mushroom, just make sure we set the erase char to the normal blank
+                ld a,bgclr              ; Otherwise its a blank space that gets used to erase the scorpion
+                ld (scorpionerclr),a
+                ld hl,gfxblank
+                ld (scorpionerase),hl
+                jr drawscorpion         ; ...and draw the scorpion
+                
+                ; We'll replace the scorpion graphic with a mushroom as we go.  If we want to draw the scorpion on top, we
+                ; could do a couple of things...  Start XORing the scorpion. Or we store an 'eraseScorp' value to use when we
+                ; erase the scorpion.
+setpoisonmushy  ld c,(ix+1)             ; Poke the YX values first
+                ld b,(ix+2)
+                ld (charPos),bc
+                ld a,poisonclr          ; Store poison colour attribute into tempA (used by setattr)
+                ld (tempA),a
+                push ix
+                ld ix,gfxmushroom
+                call drawChar           ; Draw a mushroom
+                call setAttr            ; Turn poison into normal mushroom (recoloured)
+                ld a,poisonclr
+                ld (scorpionerclr),a    ; Store the colour to the erase colour for now
+                ld hl,gfxmushroom
+                ld (scorpionerase),hl   ; store the gfxmushroom
+                pop ix
+                
+drawscorpion    ld a,(ix+3) ; Lets check to see what direction the graphic is facing
+                cp 1        ; Is it right?
+                jr nz, drawLeft
+                
+                ; Will need to check the gfx - seems L and R are flipped, but hey, works for now. :)
+                ld ix,gfxscorpionL
+                call drawChar           ; redraw the scorpion in place right-facing.
+                ret                     ; and we're done...
+drawLeft        ld ix,gfxscorpionR
+                call drawChar           ; redraw the scorpion in place left-facing.
+                ret                     ; and we're done...
+
+
+                ; Move the scorpion right - basically the same as left (other than just the, eh, right)
+scorpionR       ld a,(ix+1)             ; Get the X coordinate
+                inc a                   ; Move it right
+                ld (ix+1),a
+                and 224                 ; Before we continue, lets see if its exited the screen
+                jr nz, flipscorpion     ; If it has, lets disable the scorpion and flip the direction
+
+                ld c,(ix+1)             ; Poke the YX values first
+                ld b,(ix+2)
+                ld (charPos),bc
+                push ix
+                call getattr            ; grab the screen colour to see if it was a mushroom
+                ld (scorpionerclr),a    ; Store the colour to the erase colour for now
+                pop ix
+                
+                ; Check to see if we need to poison a mushroom
+                cp mushclr              ; Was it a mushroom
+                jr z, setpoisonmushy    ; Yes, then lets set the mushroom to poison
+                
+                cp poisonclr            ; was it already a poison mushroom?  In which case make sure we draw the same thing
+                jr z, setpoisonmushy    ; Yup, just set the mushroom as poison (ie no change)
+                
+                ; If no mushroom, just make sure we set the erase char to the normal blank
+                ld a,bgclr              ; Otherwise its a blank space that gets used to erase the scorpion
+                ld (scorpionerclr),a
+                ld hl,gfxblank
+                ld (scorpionerase),hl
+                jr drawscorpion         ; ...and draw the scorpion
+
+flipscorpion    ld (ix+0),0             ; Disable the scorpion...
+                ld a,(ix+3)             ; check the direction we had been travelling previously
+                cp 1                    ; Was it to the right
+                jr z, flipL             ; Then lets flip it to go left the next time
+                
+                ; Otherwise lets flip to go right
+                call rand
+                ld (ix+2),a             ; Set Y to a random value (1-15)
+                ld (ix+1),0             ; Set X to 0 (left side)
+                ld (ix+3),1             ; Set X to move to the right
+                
+                ret                     ; And exit
+                
+flipL           ; Flip it to the left
+                call rand
+                ld (ix+2),a             ; Set Y to a random value (1-15)
+                ld (ix+1),31            ; Set X to 31 (right side)
+                ld (ix+3),0             ; Set X to move to the left
+                ret
+
+; -------------------------------------------------------------------------------------------------
+; * THESCORPION : this controls the tick counter, as well as setting up the scorpion/activating it
+; -------------------------------------------------------------------------------------------------
+r_thescorpion   ld ix,scorpion
+                ld a,(ix+0)             ; Check to see if the scorpion is currently active.
+                cp 0                    
+                jr z, scorptickUpd      ; If not, we'll loop through the tick counter code
+                call movescorpion       ; Move the scorpion
+                ret
+            
+scorptickUpd    ld de,scorpiontick
+                ld a,(de)               ; Get the tick counter
+                inc a                   ; and increment it
+                ld (de),a               ; update the tick counter
+                ld hl,scorpiontmax
+                cp (hl)                 ; Check to see if we need to add a scorpion
+                jr z, addscorpion
+                ret                     ; Otherwise exit
+                
+addscorpion     ; Lets add a scorpion
+                ld ix,scorpion
+                ld (ix+0),255           ; Activate scorpion
+                
+                ; All the X,Y and direction should be set already
+                
+                ; Reset the counter
+                xor a
+                ld (de),a
+                ret
+                
 ; -------------------------------------------------------------------------------------------------------
 ; GRAPHICS ROUTINES
 ; Routines and data for 8x8 character sized graphics.
@@ -1056,6 +1230,48 @@ shortBlip   ld hl,1000              ; Load tone into hl
             ld de,60                ; Load length into de
             call 949                ; Call rom routine to 'beep'
             ret
+            
+; -------------------------------------------------------------------------------------------------------           
+; Pseudo Random Number generator : This code is NOT mine, and was sourced from cpcwiki:
+; http://www.cpcwiki.eu/forum/programming/pseudo-random-number-generation/
+;
+; Have however modified this for centipede so values are limited to 1-15 (ideal for screen of this game)
+; The 8-bit-Random value is returned in a
+rand
+            ld a,(rndf)         ; Grab rndf
+            ld b,&f             ; Set b to 15
+            ld c,0              
+            ld hl,rnd0+&e       ; hl = address rnd0 + 14
+                                ; (last value on rnd3 list)
+_rnd_add
+            adc a,(hl)          ; Add and carry value from (hl) to a
+            ld (hl),a           ; Replace contents of hl with a
+            dec hl              ; Decrease hl
+            djnz _rnd_add       ; Repeat this bc times (15)
+            ld b,&10            ; Set b to 16
+            ld hl,rnd0          ; point hl to rnd0 again
+_rnd_inc
+            inc (hl)            ; Increment the value in (hl)
+            inc hl              ; go to the next rnd*
+            djnz _rnd_inc       ; repeat bc times (16)
+            ld a,(rnd0)         ; grab the value at rnd0
+            and a               ; and a on a
+            and 15              ; Mask this so value is only 0-15
+            cp 0
+            jr z,settoone       ; In this game, we want to start at line 1, not 0 (where the score is)
+            ret
+settoone    ld a,1
+            ret
+
+; Random table data
+rnd0    defb    $64
+rnd1    defb    $76
+rnd2    defb    $85
+rnd3    defb    $54,$f6,$5c,$76,$1f,$e7,$12,$a7,$6b,$93,$c4,$6e,$32
+rndf    defb    $1b
+; -------------------------------------------------------------------------------------------------------           
+
+
 ; -------------------------------------------------------------------------------------------------------           
 ; DATA / INFORMATION
 ; -------------------------------------------------------------------------------------------------------           
@@ -1171,13 +1387,16 @@ randdrop        defb    1,0,0,0,0,0,0,0,1,0,0,1,0,0,0,1,0,1,0,0,0,0,0,0,0,1,0,1,
 ; -------------------------------------------------------------------------------------------------------
 ; SCORPION
 ; scorpion (active, x, y, dx). bg is used to determine whether use a mushroom or a blank.
-; scorpionspeed is a tick counter for motion speed - ie. every x ticks, update the movement
+; scorpionspeed is a tick counter for motion speed - ie. every x ticks, update the movement.  Erase stores
+; the gfx and bg colour to use when passing over a BG (poisonclr, blankclr, gfxmushroom, gfxblank)
 ; -------------------------------------------------------------------------------------------------------           
 scorpion        defb    255,0,10,1
 scorpionbg      defb    0,0
 scorpiontick    defb    0
 scorpiontmax    defb    64
 scorpionspeed   defb    2
+scorpionerase   defw    gfxblank
+scorpionerclr   defb    bgclr
 
 ; -------------------------------------------------------------------------------------------------------           
 ; VARIOUS:
