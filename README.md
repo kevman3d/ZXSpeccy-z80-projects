@@ -8,8 +8,8 @@ The following is an index of the files in this repository and will be updated as
 ## Snapshots / Progress
 Snapshot updates (.sna) that can be downloaded and run on an emulator are provided.  Note that these may also have associated gameplay videos (.mp4) that can be watched instead of using an emulator.
 - **centipede_WIP_200418.sna** : WIP - ZX Spectrum snapshot (.sna) (20-04-18). Player/Centipede/Score/Bullet functionality.
-- **centipede_WIP_230418.sna** : WIP - ZX Spectrim snapshot (.sna) (23-04-18). Dropping 'flea' added.
-- **centipede_WIP_240418.sna** : WIP - ZX Spectrim snapshot (.sna) (23-04-18). Scorpion added.
+- **centipede_WIP_230418.sna** : WIP - ZX Spectrum snapshot (.sna) (23-04-18). Dropping 'flea' added.
+- **centipede_WIP_240418.sna** : WIP - ZX Spectrum snapshot (.sna) (23-04-18). Scorpion added.
 ## Utilities and tools
 Non-spectrum tools, written to assist the development process and shave off some time.
 
