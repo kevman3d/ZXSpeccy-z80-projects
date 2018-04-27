@@ -939,7 +939,161 @@ addscorpion     ; Lets add a scorpion
                 xor a
                 ld (de),a
                 ret
+
+; -------------------------------------------------------------------------------------------------------
+;                                T  H  E    S  P  I  D  E  R
+; -------------------------------------------------------------------------------------------------------
+; -------------------------------------------------------------------------------------------------
+; MOVESPIDER : Bounce the spider across the screen.
+; -------------------------------------------------------------------------------------------------                
+movespider      ld ix,spider            ; Set IX to the spider data.
+                ld a,(ix+0)             ; Check to make sure the spider is active
+                cp swOff                ; Was it off?
+                ret z                   ; If so, we can safely return and do nothing
                 
+				; Erase the spider by replacing the BG with the graphic
+                ld c,(ix+1)             ; Poke the YX values first
+                ld b,(ix+2)
+                ld (charPos),bc
+				ld hl,(spiderbg)		; Get the last BG character spider was over
+                push ix
+				ld ix,hl				; Set the sprite
+                call drawChar			; draw it to erase the spider
+                pop ix
+                
+                ; Move spider - Backup Y - just handy to have when moving down for quick reset
+                ld a,(ix+2)             ; Read the spider's Y location
+                ld (tempY),a            ; Store the Y location temporarily
+
+                ; Read the movement X value
+                ld a,(ix+3)             ; Read the x direction
+                cp movRight
+                jr nz, spiderLN         ; If not right, jump to spiderLN (left/none) label
+                
+                ld a,(ix+1)             ; Otherwise get spider X
+                inc a                   ; Move left
+                ld (ix+1),a
+                and 224                 ; See if X is in the range 0-31 (the 'and' operator will mask and see if
+                                        ; any values in 128-32 exist (ie > 31) using 11100000)
+                jr z,spiderBounce       ; If inside bounds, jump to spiderBounce (vertical movement)
+                
+                ld(ix+0),swOff          ; Otherwise deactivate the spider (left screen)
+                ld (ix+1),0             ; Set the start to the left
+                ld (ix+2),16            ; Start at Y 16
+                ld (ix+3),1             ; X move right
+                ld (ix+4),1             ; Y move down
+                ld ix,gfxblank			; Set the default to blank bg
+				ld hl,spiderbg
+				ld (hl),ix
+                ld hl,spiderTick
+                ld (hl),0               ; Reset counter
+                ret                     ; and we can exit.
+
+spiderLN        ld a,(ix+3)             ; Lets check to make sure that we're actually moving
+                cp swOff
+                jr z, spiderBounce      ; if not moving, lets just go bounce
+                
+                ld a,(ix+1)             ; Otherwise get spider X
+                dec a                   ; Move Left
+                ld (ix+1),a
+                and 224                 ; See if X is in the range 0-31 (the 'and' operator will mask and see if
+                                        ; any values in 128-32 exist (ie > 31) using 11100000)
+                jr z,spiderBounce       ; If inside bounds, jump to spiderBounce (vertical movement)
+                
+                ld(ix+0),0              ; Otherwise deactivate the spider (left screen)
+                ld (ix+1),31            ; Set the start to the right
+                ld (ix+2),16            ; Start at Y 16
+                ld (ix+3),255           ; X move left
+                ld (ix+4),1             ; Y move down
+                ld ix,gfxblank			; Set the default to blank bg
+				ld hl,spiderbg
+				ld (hl),ix
+                ld hl,spiderTick
+                ld (hl),0				; Reset counter
+                ret						; and we can exit.
+
+spiderBounce    ld a,(ix+4)             ; Grab the Y direction
+                cp 1                    ; Is it moving down?
+                jr nz, spiderU          ; If no, its moving up
+                
+                ld a,(ix+2)             ; Grab the Y value
+                inc a
+                ld (ix+2),a             ; Increment and update
+                cp 24                   ; Check if its outside the bottom of the screen.
+                jr nz, spiderOK         ; No, then we're done and we can jump to the end (spiderOK)
+                
+                ld a,(tempY)            ; Get previous Y
+                ld (ix+2),a             ; Reset Y with this value
+                ld (ix+4),255           ; Set the Y move to up
+                call chooseDirection    ; And see if we are going to randomly change direction X
+                jr spiderOK             ; and then jump to the end (spiderOK) to draw and exit
+                
+spiderU         ld a,(ix+2)             ; Grab the Y value
+                dec a
+                ld (ix+2),a             ; decrement and update
+                cp 16                   ; Check if its outside the top barrier of the screen.
+                jr nz, spiderOK         ; No, then we're done and we can jump to the end (spiderOK)
+                
+                ld a,(tempY)            ; Get previous Y
+                ld (ix+2),a             ; Reset Y with this value
+                ld (ix+4),1             ; Set the Y move to down
+                call chooseDirection    ; And see if we are going to randomly change direction X
+
+spiderOK        ld c,(ix+1)             ; Poke the YX values first
+                ld b,(ix+2)
+                ld (charPos),bc
+		        call getspiderBG        ; Grab the BGcontents of the spiders new position first
+										; and store it
+		        ld ix,gfxspider
+                call drawChar           ; then draw the spider
+                ret                     ; and we're done...
+                
+; Grab the spider BG and store in spiderbg
+getspiderBG		call getattr			; Grab the attribute value into a
+				ld c,a					; Store in c
+				ld hl,attribGFX			; Set pointer to our test table
+spiderbgLoop	ld a,(hl)				; What was the colour
+				cp 128					; Are we at the end of the table?
+				jr nz, testbg			; Nope so lets go test the attrib
+				
+				; If we got here, obviously there was a problem (some odd attrib)
+				ld hl,gfxblank
+				ld (spiderbg),hl
+				ret 					; Then we can exit
+				
+				; Otherwise lets check and grab the correct BG graphic
+testbg			cp d					; Compare to the background
+				jr nz, nextbgcheck		; if no, jump to next background check.
+				
+				; Otherwise was successful.  Store and exit
+				inc hl
+				ld de,(hl)
+				ld (spiderbg),de
+				ret
+nextbgcheck		inc hl
+				inc hl
+				inc hl
+				jr spiderbgLoop
+				
+; -------------------------------------------------------------------------------------------------
+; A table of random X direction values used to give the spider a little more of an interesting
+; bounce left, right or up-n-down.  This could be replaced at some point with use of random no.
+; as used in the scorpions Y location.
+; -------------------------------------------------------------------------------------------------
+chooseDirection ld hl,(randM)           ; Grab the random value (ie. our rom address)
+                ld a,(hl)               ; This value in a will determine if we move or not.
+                ld (ix+3),a             ; set movement on X
+                cp 128                  ; End of data?  Lets jump back
+                jr z, resetMove         ; No, check left
+                inc hl                  ; Otherwise inc and move on...
+                ld (randM),hl
+                ret
+resetMove       ld hl,randMotion        ; Reset the table pointer ready to start again
+                ld (randM),hl
+                ld a,(hl)
+                ld (ix+3),a             ; And don't forget to reset the x move...
+                ret                     ; We're finished
+
 ; -------------------------------------------------------------------------------------------------------
 ; GRAPHICS ROUTINES
 ; Routines and data for 8x8 character sized graphics.
@@ -1224,13 +1378,92 @@ strLoop     ld a,(hl)               ; Loop through each byte
             inc hl                  ; Go to next byte
             jr strLoop              ; and repeat until done
             
-; Simple beep tone used when keys are redefined.  Add's a pause to the code so that it doesn't jump
-; quickly to next key (and annoy heavy fingered gamers)
-shortBlip   ld hl,1000              ; Load tone into hl
+; -------------------------------------------------------------------------------------------------------
+; SOUND EFFECTS : Routines that blip and buzz
+; -------------------------------------------------------------------------------------------------------
+; SFX : Simple beep tone used when keys are redefined.  Add's a pause to the code so that it
+; doesn't jump quickly to next key (and annoy heavy fingered gamers)
+shortBlip   ld hl,1500              ; Load tone into hl
             ld de,60                ; Load length into de
             call 949                ; Call rom routine to 'beep'
             ret
-            
+
+; SFX : Create a very high pitch chirp for use in game (fire bullet?)
+sfxchirp	ld hl,100				; hl = pitch
+			ld de,1					; de = length (1 click)
+			ld b,32					; Loop 32 times - shorten for quicker chirp
+sfxchloop 	push hl
+			push de
+			push bc
+			call 949				; Call rom routine to 'bip' at tone
+			pop bc
+			pop de
+			pop hl
+			inc hl					; inc pitch to lower it a little and get chirp vs tone
+			inc hl
+			inc hl
+			djnz sfxchloop			; and repeat
+			ret
+
+; SFX : Low single blip (short, could be used for item move, etc)
+sfxBlip		ld hl,1000             ; Load tone into hl
+            ld de,1                 ; Load length into de
+            call 949                ; Call rom routine to 'beep'
+            ret
+			
+; SFX : Create white noise (ideal for when mushroom hit/player hit, etc)
+sfxWN		ld hl,0					; Point to location in ROM
+			ld d,16					; d = 16 to toggle speaker on and off
+			ld b,128				; b = loop 128 clicks
+WNloop		ld a,d					; Get speaker toggle into a
+			and 248					; clear any bits that would flicker the border
+			out (254),a				; switch speaker on/off
+			cpl						; invert a - if speaker on, then speaker off
+			ld d,a					; Update d with new toggled value
+			ld c,(hl)				; Get the byte value from ROM - this will give random pause
+WNpause		dec c					; pause for random ROM value length
+			jr nz, WNpause
+			inc hl					; Inc to the next ROM address
+			djnz WNloop				; and repeat
+			ret
+	
+; SFX : Zap FX - kinda a phasor effect.  Interesting - could be handy for player zapped
+; or start of new level...  Something to think about...
+sfxZap		ld hl,1000				; Start by resetting tones
+			ld (wblT1),hl
+			ld hl,2000
+			ld (wblT2),hl
+			ld de,1					; Set the de to the length of the blip
+			ld b,16					; Length of the sound effect 
+zapLoop		ld hl,(wblT1)			; Load the first tone
+			push de
+			push bc
+			call 949				; Beep
+			pop bc
+			pop de
+			ld hl,(wblT2)			; Load the second tone
+			push de
+			push bc
+			call 949				; Beep
+			pop bc
+			pop de
+			push de
+			ld hl,(wblT2)			; Now we decrease second tone (bigger values = lower tone)
+			ld de,32				; Amount to decrease/increase.  For longer loops
+									; set with b at start, make smaller as can get wierd.
+			adc hl,de
+			ld (wblT2),hl			; And increase the first tone
+			ld hl,(wblT1)
+			sbc hl,de
+			ld (wblT1),hl
+			pop de
+			djnz zapLoop			; And loop
+			ret
+			
+; FX table tones.  One rises, one lowers
+wblT1		defw	1000
+wblT2		defw	2000			
+
 ; -------------------------------------------------------------------------------------------------------           
 ; Pseudo Random Number generator : This code is NOT mine, and was sourced from cpcwiki:
 ; http://www.cpcwiki.eu/forum/programming/pseudo-random-number-generation/
@@ -1271,6 +1504,60 @@ rnd3    defb    $54,$f6,$5c,$76,$1f,$e7,$12,$a7,$6b,$93,$c4,$6e,$32
 rndf    defb    $1b
 ; -------------------------------------------------------------------------------------------------------           
 
+; Check for a dead centipede.  If there are any active segments, we just exit the routine
+; If the loop reaches the end of the data, we didn't find any live segments so game over!
+
+deadCent	ld ix,centipede
+deadLoop	ld a,(ix+0)
+		cp 128
+		jr z, gameOver
+		ld a,(ix+0)
+		cp 255		; Is a segment active?
+		ret z		; Ok, we can exit
+		cp 64		; Is it Kamikaze (ie. Alive)
+		ret z		; Ok as well... exit
+
+		inc ix		; Next segment
+		inc ix
+		inc ix
+		inc ix
+		jr deadLoop	; And loop
+
+gameOver	call cls		; Clear screen
+			call printGO	; Print Game Over
+			ld a,32			; Set a to flag as 'centipede destroyed'
+			ret				; Return back to our main loop
+
+; GAME LOOP : This is a test.  Loops until the centipede is all dead
+M_GLOOP		ld hl,gamespeed		; Get a timer tick
+			ld a,(hl)			; is it 0?
+			dec a
+			jr z, drawgame		; Yup, draw the game screen
+			ld (hl),a
+			jr M_GLOOP		; Go back and wait for tick to reach 0
+			
+drawgame	call deadCent	; Check to see if the centipede is dead
+							; a will be 32 if this is true
+							
+			cp 32			; Was the centipede dead?
+			jr z,exitGame	; Yup - exit!
+
+			; Otherwise lets keep playing the game
+			call r_movecentipede
+			call sfxBlip
+			call r_theflea
+			call r_thescorpion
+			call r_moveplayer
+			call printScore
+PokeSpeed		ld a,32				; Reset timer
+			ld hl,gamespeed
+			ld (hl),a
+			jr M_GLOOP				; And loop again.
+
+exitGame	ret
+
+
+gamespeed		defb	32
 
 ; -------------------------------------------------------------------------------------------------------           
 ; DATA / INFORMATION
@@ -1309,12 +1596,37 @@ gfxcentR          defb    64,60,54,126,126,54,60,64
 attcentR          defb    2
 gfxscorpionL      defb    0,97,150,69,120,61,6,1
 attscorpionL      defb    67
+; Poison mushroom - same graphic as mushroom - repeated here if needed.
+gfxpoison         defb    60,106,213,255,36,36,24,0
 attPoison         defb    poisonclr
+
 
 ; -------------------------------------------------------------------------------------------------------           
 ; GAME DATA
 ; Variables, values and settings for all items within the game.
 ; -------------------------------------------------------------------------------------------------------           
+; -------------------------------------------------------------------------------------------------------           
+; GFX and related attribute table - used to retrieve background item at a location and return the gfx
+; address (each element on screen has its own attribute)
+; -------------------------------------------------------------------------------------------------------           
+attribGFX		defb	bgclr			; Blank
+				defw	gfxblank
+				defb	mushclr			; Mushroom (standard)
+				defw	gfxmushroom
+				defb	fleaclr			; Flea
+				defw	gfxflea
+				defb	playerclr		; Player
+				defw	gfxplayer
+				defb	bulletclr		; Bullet
+				defw	gfxbullet
+				defb 	scorpionclr		; Scorpion
+				defw	gfxscorpionL
+				defb	centclr			; Centipede (this could be anything - using one gfx here)
+				defw	gfxcentU
+				defb	poisonclr		; Poison mushroom
+				defw	gfxpoison
+				defb	128				; End of data
+				
 ; -------------------------------------------------------------------------------------------------------
 ; PLAYER
 ; -------------------------------------------------------------------------------------------------------           
@@ -1331,24 +1643,6 @@ keysTable       defb    251,1,128       ; Q key
 
 ; Define a list of all the ports used to read the keyboard - used in redefine keys routines
 chanTable       defb    254,253,251,247,239,223,191,127
-
-
-; -------------------------------------------------------------------------------------------------------
-; CENTIPEDE
-; Each segment of a centipede contains an active flag (0 dead,128 on,64 kamikaze),x,y and delta x (+/-)
-; 128 terminates the list.  This enables the ability to inc or dec the length of the centipede.
-; centipedespeed is a tick counter for motion speed - ie. every x ticks, update the movement
-; -------------------------------------------------------------------------------------------------------           
-centipede       defb    255,10,0,1                  ; A segment (active, x, y, dx)
-                defb    255,11,0,1
-                defb    255,12,0,1
-                defb    255,13,0,1
-                defb    255,14,0,1
-                defb    255,15,0,1
-                defb    255,16,0,1
-                defb    255,17,0,1
-                defb    128                         ; 128 terminates centipede segment list
-centipedespeed  defb    1                           ; Speed of the centipede
 
 ; -------------------------------------------------------------------------------------------------------
 ; SPIDER
@@ -1418,7 +1712,7 @@ txtScore        defb    22,0,13                     ; AT 0,13
 txtScString     defb    48,48,48,48,48,48           ; INSERT NUMBER CHAR CODES HERE (48 + val)
 
 ; Print Game over at center of screen (16 bytes)
-txtGameOver     defb    22,0,0                      ; AT 10,10
+txtGameOver     defb    22,10,10                      ; AT 10,10
                 defb    16,6,17,2                   ; Ink 6, Paper 2
                 defm    "GAME OVER"                 ; "GAME OVER"
 
@@ -1457,3 +1751,19 @@ txtRedefFR      defb    22,11,14
                 defm    "FIRE"
                 defb    255
                 
+; -------------------------------------------------------------------------------------------------------
+; CENTIPEDE : Data at end so can be expanded without overwriting other data
+; Each segment of a centipede contains an active flag (0 dead,128 on,64 kamikaze),x,y and delta x (+/-)
+; 128 terminates the list.  This enables the ability to inc or dec the length of the centipede.
+; centipedespeed is a tick counter for motion speed - ie. every x ticks, update the movement
+; -------------------------------------------------------------------------------------------------------           
+centipede       defb    255,10,0,1                  ; A segment (active, x, y, dx)
+                defb    255,11,0,1
+                defb    255,12,0,1
+                defb    255,13,0,1
+                defb    255,14,0,1
+                defb    255,15,0,1
+                defb    255,16,0,1
+                defb    255,17,0,1
+                defb    128                         ; 128 terminates centipede segment list
+centipedespeed  defb    1                           ; Speed of the centipede
