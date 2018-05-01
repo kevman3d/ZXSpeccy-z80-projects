@@ -10,6 +10,7 @@ Snapshot updates (.sna) that can be downloaded and run on an emulator are provid
 - **centipede_WIP_200418.sna** : WIP - ZX Spectrum snapshot (.sna) (20-04-18). Player/Centipede/Score/Bullet functionality.
 - **centipede_WIP_230418.sna** : WIP - ZX Spectrum snapshot (.sna) (23-04-18). Dropping 'flea' added.
 - **centipede_WIP_240418.sna** : WIP - ZX Spectrum snapshot (.sna) (23-04-18). Scorpion added.
+- **centipede_WIP_010518.sna** : WIP - ZX Spectrum snapshot (.sna) (01-05-18). Spider added. Mostly ready to go! (exciting)
 ## Utilities and tools
 Non-spectrum tools, written to assist the development process and shave off some time.
 
