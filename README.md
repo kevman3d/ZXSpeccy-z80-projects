@@ -4,7 +4,7 @@ You can consider this repository as being an ongoing collection of code examples
 # FILES
 The following is an index of the files in this repository and will be updated as new files are added.
 ## Centipede source code
-- **centipede_complete_game.asm** : WIP full game code (updated as work progresses - sna/mp4 added per update (see _Miscellaneous files_ section)
+- **centipede_complete_game.asm** : WIP full game code (updated as work progresses - sna/mp4 added per update (see _Miscellaneous files_ section))
 ## Utilities and tools
 Non-spectrum tools, written to assist the development process and shave off some time.  These can be found under the **_tools_** subfolder.
 - **centipede_PNG_to_bytes.py** : Python script to read UDG data from a PNG file, creates defb text for use in assembler.
@@ -24,10 +24,12 @@ Each of the different parts of a typical centipede game are demonstrated individ
 ## Miscellaneous files
 The following files are examples, snapshots or other non-code files.  These are in the root of the respository as they require commandline (local machine) to move them to a subfolder.
 - **centipede.png** : Example UDG graphic PNG file (see Tools for the script to read and process this)
+- Note that each of the snapshot files also have short screen recording videos associated with them.
 - **centipede_WIP_200418.sna** : WIP - ZX Spectrum snapshot (.sna) (20-04-18). Player/Centipede/Score/Bullet functionality.
 - **centipede_WIP_230418.sna** : WIP - ZX Spectrum snapshot (.sna) (23-04-18). Dropping 'flea' added.
 - **centipede_WIP_240418.sna** : WIP - ZX Spectrum snapshot (.sna) (23-04-18). Scorpion added.
 - **centipede_WIP_010518.sna** : WIP - ZX Spectrum snapshot (.sna) (01-05-18). Spider added. Mostly ready to go! (exciting)
+- **centipede_WIP_080518.sna** : WIP - ZX Spectrum snapshot (.sna) (01-05-18). Various game speed controls added. More playable.
 - **1986_KP_Centipede_design.pdf** : Scanned hand-written notebook plan
 - **centipede_example_demo.sna** : ZX Spectrum snapshot (.sna) that can be loaded in an emulator and run for _centiblock_ demo.
 - **spiderDemo_centiblock_test.sna** : ZX Spectrum snapshot (.sna) to load and run the _centiblock_ spider code.
