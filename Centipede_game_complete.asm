@@ -15,6 +15,11 @@
 ; This game incorporates a pseudo number generator sourced from cpcwiki, with some minor tweaks:
 ; http://www.cpcwiki.eu/forum/programming/pseudo-random-number-generation/
 ;
+; Timing control for this game was based on this blog page (on writing games - great blog!)
+; https://chuntey.wordpress.com/2013/10/02/how-to-write-zx-spectrum-games-chapter-12/
+;
+; Code can (ie. will) be tidied up once the game is running.  Right now its a case of getting it to
+; just work, debug and then its refactoring/optimisation.
 ; -------------------------------------------------------------------------------------------------------
 
 ; Defined labels to make things more 'readable' in our code, and also easy to tweak globally of course
@@ -186,7 +191,7 @@ r_movecentipede ld de,centipede         ; set up the pointer to the centipede da
                 ld ixl,e
 clearloop       ld a,(ix+0)             ; test to see if we've reached the end of the data
                 cp 128
-                jr z, updateSegment     ; go down to move the segments
+                jr z, centMoveSpd   ; Up, jump to move the segments
         
                 cp swOff        ; Is the segment deactive?
                 jr z,nxtSegmentC    ; Yup, we can skip over this segment            
@@ -203,6 +208,21 @@ nxtSegmentC     inc ix                  ; go to the next segment
                 inc ix
                 inc ix
                 jr clearloop
+                
+centMoveSpd     ; SPEED CONTROL - This uses a 'ticker' that counts down and sets the interval
+                ; for when the character moves
+                ld hl,centipedespeed    ; Get the speed counter
+                ld a,(hl)
+                dec a                   ; decrease it
+                ld (hl),a
+                cp 0                    ; is it 0?
+                jr nz, drawcentipede    ; Nope, just go and redraw the centipede (skip the movement)
+                
+                inc hl                  ; Reset the counter
+                ld a,(hl)
+                dec hl
+                ld (hl),a
+
 updateSegment   pop de                  ; Retrieve the address back into de
                 push de                 ; and repush de to store it again
                 ld ixh,d
@@ -212,8 +232,8 @@ moveloop        ld a,(ix+0)             ; test to see if we've reached the end o
                 jr z, drawcentipede     ; go down to move the segments
 
                 cp swOff                ; Is the segment deactive?
-                jr z,nxtSegmentM        ; Yup, we can skip over this segment            
-
+                jr z,nxtSegmentM        ; Yup, we can skip over this segment
+                
                 call centsegment        ; Move the segments
 nxtSegmentM     inc ix                  ; go to the next segment
                 inc ix
@@ -515,6 +535,7 @@ pressedfire     ld ix,bullet            ; First, point ix to the bulletdata
                 ld a,(hl)               ; Get the players Y
                 dec a                   ; Set the bullet to the player Y - 1
                 ld (ix+2),a
+                call sfxchirp           ; Make sound effect when we fire
                 jr notfired             ; And we can jump down to draw ship and bullet
                 
                 ; Move the bullet.  Note the double-check to see if the bullet was active.  This is
@@ -566,6 +587,15 @@ notfired        ld ix,player
                 pop ix
                 cp poisonclr            ; Was it a poison mushroom?
                 jr z, goBoomP           ; Yup, go boomP (poison gets hit, changes to mushroom colour)
+
+                ld c,(ix+1)             ; Poke the YX values first
+                ld b,(ix+2)
+                ld (charPos),bc
+                push ix
+                call getattr            ; grab the screen colour
+                pop ix
+                cp spiderclr            ; Was it a spider?
+                jr z, goBoomS           ; Yup, go boomS (kill spider, add 100 to score)
                 
                 ; Did we hit the centipede?  If so, little more complex - disable centipede
                 ; segment, replacing it with a mushroom.
@@ -623,6 +653,16 @@ goBoomP         ld c,(ix+1)             ; Poke the YX values first
                 ld (tempA),a
                 call setAttr            ; Turn poison into normal mushroom (recoloured)
                 ; No score for hitting a poison mushroom (since it doesn't die)
+                jr endBullet
+
+goBoomS         ld c,(ix+1)     ; If spider was shot
+                ld b,(ix+2)
+                ld (charPos),bc
+                call eraseChar      ; Clear the character
+                call incScoreH      ; increase the score
+                call sfxWN      ; Make white noise
+                xor a
+                ld (spider),a       ; reset the spider
                 
 endBullet       ld (ix+0),swOff         ; Deactivate the bullet
                 ret
@@ -719,9 +759,19 @@ eatBG           ld c,(ix+1)             ; Poke the YX values first
                 pop hl
                 pop ix
 
-goflea          ; Move our 'pseudo random' table pointer
-                inc hl
-                ld(fleadrop),hl
+goflea          ; SPEED CONTROL - This uses a 'ticker' that counts down and sets the interval
+                ; for when the character moves
+                ld hl,fleaspeed         ; Get the speed counter
+                ld a,(hl)
+                dec a                   ; decrease it
+                ld (hl),a
+                cp 0                    ; is it 0?
+                jr nz, drawFlea         ; Nope, just go and redraw the flea (skip the movement)
+                
+                inc hl                  ; Reset the counter
+                ld a,(hl)
+                dec hl
+                ld (hl),a
                 
                 ; move flea
                 ld a,(ix+2)             ; Select Y
@@ -740,6 +790,12 @@ drawFlea        ; Draw flea
                 ld (charPos),bc
                 ld ix,gfxflea
                 call drawChar          ; Draw the flea graphic
+                
+                ; Move our 'pseudo random' table pointer to the next value
+                ld hl,(fleadrop)
+                inc hl
+                ld(fleadrop),hl
+                
                 ret
 
 ; -------------------------------------------------------------------------------------------------
@@ -799,6 +855,20 @@ erasescorpion   ; Else lets clear the scorpion
                 call drawChar           ; Erase the scorpion
                 call setattr            ; Replace the attribute
                 pop ix
+                
+                ; SPEED CONTROL - This uses a 'ticker' that counts down and sets the interval
+                ; for when the character moves
+                ld hl,scorpionspeed     ; Get the speed counter
+                ld a,(hl)
+                dec a                   ; decrease it
+                ld (hl),a
+                cp 0                    ; is it 0?
+                jr nz, drawscorpion     ; Nope, just go and redraw the scorpion (skip the movement)
+                
+                inc hl                  ; Reset the counter
+                ld a,(hl)
+                dec hl
+                ld (hl),a
 
 updatescorpion  ld a,(ix+3)             ; Get the X direction
                 cp 1                    ; Is it moving right?
@@ -899,6 +969,7 @@ flipscorpion    ld (ix+0),0             ; Disable the scorpion...
                 jr z, flipL             ; Then lets flip it to go left the next time
                 
                 ; Otherwise lets flip to go right
+                ld d,15         ; Set flag (1-15 values)
                 call rand
                 ld (ix+2),a             ; Set Y to a random value (1-15)
                 ld (ix+1),0             ; Set X to 0 (left side)
@@ -907,6 +978,7 @@ flipscorpion    ld (ix+0),0             ; Disable the scorpion...
                 ret                     ; And exit
                 
 flipL           ; Flip it to the left
+                ld d,15         ; Set flag (1-15 values)
                 call rand
                 ld (ix+2),a             ; Set Y to a random value (1-15)
                 ld (ix+1),31            ; Set X to 31 (right side)
@@ -962,6 +1034,20 @@ movespider      ld ix,spider            ; Set IX to the spider data.
                 ld ix,(spiderbg)
                 call drawChar           ; draw it to erase the spider
                 pop ix
+                
+                ; SPEED CONTROL - This uses a 'ticker' that counts down and sets the interval
+                ; for when the character moves
+                ld hl,spiderspeed       ; Get the speed counter
+                ld a,(hl)
+                dec a                   ; decrease it
+                ld (hl),a
+                cp 0                    ; is it 0?
+                jp nz, spiderOK         ; Nope, just go and redraw the spider (skip the movement)
+                
+                inc hl                  ; Reset the counter
+                ld a,(hl)
+                dec hl
+                ld (hl),a
                 
                 ; Move spider - Backup Y - just handy to have when moving down for quick reset
                 ld a,(ix+2)             ; Read the spider's Y location
@@ -1047,6 +1133,7 @@ spiderOK        ld c,(ix+1)             ; Poke the YX values first
                                         ; and store it
                 ld ix,gfxspider
                 call drawChar           ; then draw the spider
+                call sfxSpider      ; Make sound effect
                 ret                     ; and we're done...
                 
 ; Grab the spider BG and store in spiderbg
@@ -1084,7 +1171,7 @@ nextbgcheck     inc hl
 ; uses a table of random values to give the spider a little more of an interesting bounce left
 ; and right while it bounces up-n-down.  May replace at some point with use of random no. gen
 ; -------------------------------------------------------------------------------------------------
-chooseDirection ld hl,(spidermove)           ; Grab the random value (ie. our rom address)
+chooseDirection ld hl,(spidermove)      ; Grab the random value (ie. our rom address)
                 ld a,(hl)               ; This value in a will determine if we move or not.
                 cp 128                  ; End of data?  Lets jump back
                 jr z, resetMove         ; No, check left
@@ -1129,6 +1216,7 @@ activatespider  ; Lets activate the spider
                 xor a
                 ld (de),a
                 ret
+                
 ; -------------------------------------------------------------------------------------------------------
 ; GRAPHICS ROUTINES
 ; Routines and data for 8x8 character sized graphics.
@@ -1136,458 +1224,541 @@ activatespider  ; Lets activate the spider
 ; -------------------------------------------------------------------------------------------------------
 ; CALCULATE SCREEN ADDRESS
 ; -------------------------------------------------------------------------------------------------------
-calcScreen  ld bc,(charPos)
-            ld a,b          ; Get the Y value into the a register
-            and 24          ; Mask the top two bits of the Y (y4,y3)
-            or 64           ; and then set bit 6 (which is the base value for 16384)
-            ld h,a          ; Store this as our high byte into h
-            
-            ld a,b          ; Get the Y value again from b
-            rrca            ; Shift the bottom three bits into the top 3
-            rrca            ; RRCA will rotate all the bits 1 to the right
-            rrca
-            and 224         ; Clear the bottom 5 bits first
-            or c            ; and then insert the X
-            ld l,a          ; Store this as our low byte
-            ret             ; When we return, HL = screen address
+calcScreen      ld bc,(charPos)
+                ld a,b          ; Get the Y value into the a register
+                and 24          ; Mask the top two bits of the Y (y4,y3)
+                or 64           ; and then set bit 6 (which is the base value for 16384)
+                ld h,a          ; Store this as our high byte into h
+                
+                ld a,b          ; Get the Y value again from b
+                rrca            ; Shift the bottom three bits into the top 3
+                rrca            ; RRCA will rotate all the bits 1 to the right
+                rrca
+                and 224         ; Clear the bottom 5 bits first
+                or c            ; and then insert the X
+                ld l,a          ; Store this as our low byte
+                ret             ; When we return, HL = screen address
 
 ; -------------------------------------------------------------------------------------------------------
 ; CALCULATE ATTRIBUTE ADDRESS
 ; -------------------------------------------------------------------------------------------------------
-calcAttrib  ld bc,(charPos)
-            ld l,b          ; Load the Y into the l register
-            xor a           ; Zero out a register (xor quickest way to set the value to 0)
-            ld b,a          ; Zero out b.  This will leave bc = X
-            ld h,a          ; Zero out h.  This leaves hl = Y
-            
-            add hl,hl       ; Adding hl to itself 5 times performs a multiplication by 32 (its a binary
-            add hl,hl       ; thing.)
-            add hl,hl
-            add hl,hl
-            add hl,hl
-            
-            ld de,22528     ; Load the Attribute memory address into de
-            add hl,de       ; Add the address to hl (the 32 * Y).
-            add hl,bc       ; then add bc (the X)
-            ret             ; When we return, HL = attribute address
+calcAttrib      ld bc,(charPos)
+                ld l,b          ; Load the Y into the l register
+                xor a           ; Zero out a register (xor quickest way to set the value to 0)
+                ld b,a          ; Zero out b.  This will leave bc = X
+                ld h,a          ; Zero out h.  This leaves hl = Y
+                
+                add hl,hl       ; Adding hl to itself 5 times performs a multiplication by 32 (its a binary
+                add hl,hl       ; thing.)
+                add hl,hl
+                add hl,hl
+                add hl,hl
+                
+                ld de,22528     ; Load the Attribute memory address into de
+                add hl,de       ; Add the address to hl (the 32 * Y).
+                add hl,bc       ; then add bc (the X)
+                ret             ; When we return, HL = attribute address
 
 ; -------------------------------------------------------------------------------------------------------
 ; DRAW A CHARACTER
 ; Make sure that ix = Graphics data address, Y and X are stored in two bytes at address 'charPos' first
 ; (To erase a graphic, use ix = gfxblank - however 'eraseChar' routine does this for you)
 ; -------------------------------------------------------------------------------------------------------
-drawChar    call calcScreen ; Get the screen address into hl
+drawChar        call calcScreen ; Get the screen address into hl
             
-            ld b,8          ; Loop to read the 8 bytes of the character graphic
-drawbyte    ld a,(ix+0)     ; Grab the pixel data (ix should have the gfx... address)
-            ld (hl),a       ; Poke byte to screen
-            inc h           ; We can simply inc the high byte for each pixel line (bits 0-3 = line value)
-            inc ix          ; Jump to next graphic byte
-            djnz drawbyte   ; decrement b and repeat loop
+                ld b,8          ; Loop to read the 8 bytes of the character graphic
+drawbyte        ld a,(ix+0)     ; Grab the pixel data (ix should have the gfx... address)
+                ld (hl),a       ; Poke byte to screen
+                inc h           ; We can simply inc the high byte for each pixel line (bits 0-3 = line value)
+                inc ix          ; Jump to next graphic byte
+                djnz drawbyte   ; decrement b and repeat loop
 
-            call calcAttrib ; Get the attribute address into hl
-            ld a,(ix+0)     ; Read the colour attribute
-            ld (hl),a       ; and poke it onto the screen
-            ret             ; We're done!
+                call calcAttrib ; Get the attribute address into hl
+                ld a,(ix+0)     ; Read the colour attribute
+                ld (hl),a       ; and poke it onto the screen
+                ret             ; We're done!
 
 ; SHORTCUT ROUTINE TO ERASE A CHARACTER
-eraseChar   ld ix,gfxblank
-            call drawChar
-            ret
+eraseChar       ld ix,gfxblank
+                call drawChar
+                ret
 
 ; -------------------------------------------------------------------------------------------------------
 ; READ SCREEN ATTRIBUTE
 ; Store the Y and X at the address 'charPos'.  The routine returns the attribute value in a.
 ; This routine is used primarily for collision detection.
 ; -------------------------------------------------------------------------------------------------------
-getattr     call calcAttrib         ; Get the memory address into hl
-            ld a,(hl)               ; grab the attribute value
-            ret                     ; and return
+getattr         call calcAttrib         ; Get the memory address into hl
+                ld a,(hl)               ; grab the attribute value
+                ret                     ; and return
 
 ; -------------------------------------------------------------------------------------------------------
 ; SET SCREEN ATTRIBUTE
 ; Store the Y and X at the address 'charPos'. Place the attribute value in address 'tempA'
 ; -------------------------------------------------------------------------------------------------------
-setattr     call calcAttrib         ; Get the memory address into hl
-            ld de,tempA
-            ld a,(de)               ; grab the attribute value
-            ld (hl),a
-            ret                     ; and return
+setattr         call calcAttrib         ; Get the memory address into hl
+                ld de,tempA
+                ld a,(de)               ; grab the attribute value
+                ld (hl),a
+                ret                     ; and return
 
 ; -------------------------------------------------------------------------------------------------------
 ; CLEAR SCREEN
 ; Wipes the screen, note that using a routine for CLS and not the ROM version means could replace this
 ; simple blanking routine with other 'effect' style screen clears
 ; -------------------------------------------------------------------------------------------------------
-cls         ld hl, 16384            ; Set HL to graphics location
-            ld de, 16385            ; Set DE to next byte
-            ld bc, 6143             ; Set BC to the length of the screen memory
-            ld (hl),0               ; Set the first byte to 0 (blank)
-            ldir                    ; Loop - LDIR ld (HL),(DE), incs both, and loops BC times
-            
-            ld hl, 22528            ; Same process for the Attributes
-            ld de, 22529
-            ld bc, 767
-            ld (hl),7               ; Set to 7 (white ink, black paper)
-            ldir
-            ret                     ; and we're finished
-
+cls             ld hl, 16384            ; Set HL to graphics location
+                ld de, 16385            ; Set DE to next byte
+                ld bc, 6143             ; Set BC to the length of the screen memory
+                ld (hl),0               ; Set the first byte to 0 (blank)
+                ldir                    ; Loop - LDIR ld (HL),(DE), incs both, and loops BC times
+                
+                ld hl, 22528            ; Same process for the Attributes
+                ld de, 22529
+                ld bc, 767
+                ld (hl),7               ; Set to 7 (white ink, black paper)
+                ldir
+                ret                     ; and we're finished
 
 ; -------------------------------------------------------------------------------------------------------
 ; VARIOUS GAME ROUTINES
 ; -------------------------------------------------------------------------------------------------------
-
 ; -------------------------------------------------------------------------------------------------------
 ; PRINT SCORE
 ; Grabs the text data at txtScore, the values at scoreChar and prints the score
 ; -------------------------------------------------------------------------------------------------------
-printScore  ld a,2
-            call 5633               ; Set the print to go to the screen first (channel 2 (a))
-                                    ; Note that 1 = lower screen (input area) and 3 = ZX Printer
-            
-            ; Start by setting ASCII chars into the string
-            ld de,scoreChar
-            ld hl,txtScString
-            ld b,6
-setChar     ld a,(de)               ; Get the counter
-            add a,48                ; Character = ascii 48+counter
-            ld (hl),a               ; Update it
-            inc hl
-            inc de
-            djnz setChar            ; And repeat the process for all 6 digits
-            
-printChar   ld de,txtScore          ; Point to the string data
-            ld bc,13                ; 13 characters long (AT Y,X; INK 7; PAPER 0; "000000")
-            call 8252
-            ret
-            
+printScore      ld a,2
+                call 5633               ; Set the print to go to the screen first (channel 2 (a))
+                                        ; Note that 1 = lower screen (input area) and 3 = ZX Printer
+                
+                ; Start by setting ASCII chars into the string
+                ld de,scoreChar
+                ld hl,txtScString
+                ld b,6
+setChar         ld a,(de)               ; Get the counter
+                add a,48                ; Character = ascii 48+counter
+                ld (hl),a               ; Update it
+                inc hl
+                inc de
+                djnz setChar            ; And repeat the process for all 6 digits
+                
+printChar       ld de,txtScore          ; Point to the string data
+                ld bc,13                ; 13 characters long (AT Y,X; INK 7; PAPER 0; "000000")
+                call 8252
+                ret
+                
 ; -------------------------------------------------------------------------------------------------------
 ; PRINT "GAME OVER"
 ; Prints text data at txtGameOver
 ; -------------------------------------------------------------------------------------------------------
-printGO     ld a,2
-            call 5633               ; Set the print to go to the screen first (channel 2 (a))
-                                    ; Note that 1 = lower screen (input area) and 3 = ZX Printer
-            ld de,txtGameOver       ; Point to the string data
-            ld bc,16                ; 16 characters long (AT Y,X; INK 6; PAPER 2; "GAME OVER")
-            call 8252
-            ret
-            
+printGO         ld a,2
+                call 5633               ; Set the print to go to the screen first (channel 2 (a))
+                                        ; Note that 1 = lower screen (input area) and 3 = ZX Printer
+                ld de,txtGameOver       ; Point to the string data
+                ld bc,16                ; 16 characters long (AT Y,X; INK 6; PAPER 2; "GAME OVER")
+                call 8252
+                ret
+                
 ; -------------------------------------------------------------------------------------------------------
 ; INCREASE SCORE
 ; Increases the 6 digit score stored under scoreChar.  A collection of short routines added for adding
 ; 1 (incScore),10 (incScoreT),100 (incScoreH) to the score.
 ; -------------------------------------------------------------------------------------------------------
 ; Add 100 to score
-incScoreH   ld ix,scoreChar
-            jr incHunds
+incScoreH       ld ix,scoreChar
+                jr incHunds
             
 ; Add 10 to score
-incScoreT   ld ix,scoreChar
-            jr incTens
+incScoreT       ld ix,scoreChar
+                jr incTens
             
 ; Add 1 to score
-incScore    ld ix,scoreChar         ; Point IX to the score counters
-incOnes     ld a,(ix+5)             ; ONES - increase this value
-            inc a
-            cp 10                   ; Is it 10?
-            jr z, rolloverTen       ; Then we need to increase the 10's counter
-            ld (ix+5),a             ; Otherwise save it
-            ret                     ; and we're done
+incScore        ld ix,scoreChar         ; Point IX to the score counters
+incOnes         ld a,(ix+5)             ; ONES - increase this value
+                inc a
+                cp 10                   ; Is it 10?
+                jr z, rolloverTen       ; Then we need to increase the 10's counter
+                ld (ix+5),a             ; Otherwise save it
+                ret                     ; and we're done
             
-rolloverTen xor a
-            ld (ix+5),a             ; Reset the ones counter
+rolloverTen     xor a
+                ld (ix+5),a             ; Reset the ones counter
             
-incTens     ld a,(ix+4)             ; TENS - increase this value
-            inc a
-            cp 10                   ; Is it 10?
-            jr z, rolloverHnd       ; Then we need to increase the 100's counter
-            ld (ix+4),a             ; Otherwise save it
-            ret                     ; and we're done
+incTens         ld a,(ix+4)             ; TENS - increase this value
+                inc a
+                cp 10                   ; Is it 10?
+                jr z, rolloverHnd       ; Then we need to increase the 100's counter
+                ld (ix+4),a             ; Otherwise save it
+                ret                     ; and we're done
 
-rolloverHnd xor a
-            ld (ix+4),a             ; Reset the 10 counter
+rolloverHnd     xor a
+                ld (ix+4),a             ; Reset the 10 counter
             
-incHunds    ld a,(ix+3)             ; HUNDREDS - increase this value
-            inc a
-            cp 10                   ; Is it 10?
-            jr z, rolloverTho       ; Then we need to increase the 1000's counter
-            ld (ix+3),a             ; Otherwise save it
-            ret                     ; and we're done
+incHunds        ld a,(ix+3)             ; HUNDREDS - increase this value
+                inc a
+                cp 10                   ; Is it 10?
+                jr z, rolloverTho       ; Then we need to increase the 1000's counter
+                ld (ix+3),a             ; Otherwise save it
+                ret                     ; and we're done
 
-rolloverTho xor a
-            ld (ix+3),a             ; Reset the 1000 counter
+rolloverTho     xor a
+                ld (ix+3),a             ; Reset the 1000 counter
             
-incThous    ld a,(ix+2)             ; Thousands - increase this value
-            inc a
-            cp 10                   ; Is it 10?
-            jr z, rolloverTth       ; Then we need to increase the 10000's counter
-            ld (ix+2),a             ; Otherwise save it
-            ret                     ; and we're done
+incThous        ld a,(ix+2)             ; Thousands - increase this value
+                inc a
+                cp 10                   ; Is it 10?
+                jr z, rolloverTth       ; Then we need to increase the 10000's counter
+                ld (ix+2),a             ; Otherwise save it
+                ret                     ; and we're done
 
-rolloverTth xor a
-            ld (ix+2),a             ; Reset the 1000 counter
+rolloverTth     xor a
+                ld (ix+2),a             ; Reset the 1000 counter
             
-incTenthou  ld a,(ix+1)             ; 10 Thousands - increase this value
-            inc a
-            cp 10                   ; Is it 10?
-            jr z, rolloverHth       ; Then we need to increase the 100000's counter
-            ld (ix+1),a             ; Otherwise save it
-            ret                     ; and we're done
+incTenthou      ld a,(ix+1)             ; 10 Thousands - increase this value
+                inc a
+                cp 10                   ; Is it 10?
+                jr z, rolloverHth       ; Then we need to increase the 100000's counter
+                ld (ix+1),a             ; Otherwise save it
+                ret                     ; and we're done
 
-rolloverHth xor a
-            ld (ix+1),a             ; Reset the 10000 counter
+rolloverHth     xor a
+                ld (ix+1),a             ; Reset the 10000 counter
             
-incHundthou ld a,(ix+0)             ; 100 Thousands - increase this value
-            inc a
-            cp 10                   ; Is it 10?
-            jr z, resetScore        ; Then we roll over - we've clocked the score!
-            ld (ix+0),a             ; Otherwise save it
-            ret                     ; and we're done
+incHundthou     ld a,(ix+0)             ; 100 Thousands - increase this value
+                inc a
+                cp 10                   ; Is it 10?
+                jr z, resetScore        ; Then we roll over - we've clocked the score!
+                ld (ix+0),a             ; Otherwise save it
+                ret                     ; and we're done
             
-resetScore  ld hl,scoreChar         ; Reset the score...  Set hl to our scoreChar counters
-            ld b,6                  ; There are 6 counters
-resValue    xor a
-            ld (hl),a               ; Zero out the counter
-            inc hl
-            djnz resValue           ; And loop
-            ret
+resetScore      ld hl,scoreChar         ; Reset the score...  Set hl to our scoreChar counters
+                ld b,6                  ; There are 6 counters
+resValue        xor a
+                ld (hl),a               ; Zero out the counter
+                inc hl
+                djnz resValue           ; And loop
+                ret
  
 ; -------------------------------------------------------------------------------------------------------           
 ; REDEFINE KEYS
 ; Handy routine to redefine keys for the game.
 ; -------------------------------------------------------------------------------------------------------
-redefKeys   call cls                ; Clear the screen
-            ld hl,txtRedefKeys      ; Print the message "redefine keys" to begin
-            call printStr           ; (uses our printing routine for a string (255 termination byte))
-            call shortBlip          ; Quick beep
-            ld ix,keysTable         ; load ix to point to our keys table
-            ld hl,txtRedefUP        ; load hl to point to our messages (ie. what key to define)
-            ld b,5                  ; There are 5 keys (U,D,L,R,F)
-redfLoop    push bc                 ; Quickly push these two registers (they get altered by other code)
-            push ix
-            call printStr           ; Print out key message
-            inc hl                  ; and inc hl to the next key message
-waitForKey  ld de,chanTable         ; point de to a channel table used by the keyboard input
-            ld b,8                  ; There are 8 channels (in the chanTable) to check
-scanKeys    ld a,(de)               ; Read the channel entry from chanTable
-            in a,(254)              ; Read the port to see if anything pressed
-            cpl                     ; Invert the value returned in a
-            and 31                  ; mask the bottom 5 bytes to see if a key was pressed
-            cp 0                    ; Was a key pressed? (ie. the value won't be 0)
-            jr nz, okRedef          ; Yup, lets redefine that key
-            inc de
-            djnz scanKeys           ; If not, lets keep scanning the next channel
-            jr waitForKey           ; Once done, we just go back and scan again
-okRedef     push af                 ; Yup - a key was pressed.  Lets push all our registers to back them up
-            push de
-            push hl
-            call shortBlip          ; Make a short sound.  This gives the user time to release a key
-            pop hl                  ; Restore our registers
-            pop de
-            pop af
-            pop ix                  ; And don't forget our first push that we did for the key loop
-            pop bc
-            ld (ix+1),a             ; Store the bit value for key
-            ld a,(de)               ; Get the channel it was read from
-            ld (ix+0),a               ; Store this value
-            inc ix                  ; and move to next key entry
-            inc ix
-            inc ix
-            djnz redfLoop           ; And go back to loop through the keys
-            ret                     ; Once done all 5, exit
-            
+redefKeys       call cls                ; Clear the screen
+                ld hl,txtRedefKeys      ; Print the message "redefine keys" to begin
+                call printStr           ; (uses our printing routine for a string (255 termination byte))
+                call shortBlip          ; Quick beep
+                ld ix,keysTable         ; load ix to point to our keys table
+                ld hl,txtRedefUP        ; load hl to point to our messages (ie. what key to define)
+                ld b,5                  ; There are 5 keys (U,D,L,R,F)
+redfLoop        push bc                 ; Quickly push these two registers (they get altered by other code)
+                push ix
+                call printStr           ; Print out key message
+                inc hl                  ; and inc hl to the next key message
+waitForKey      ld de,chanTable         ; point de to a channel table used by the keyboard input
+                ld b,8                  ; There are 8 channels (in the chanTable) to check
+scanKeys        ld a,(de)               ; Read the channel entry from chanTable
+                in a,(254)              ; Read the port to see if anything pressed
+                cpl                     ; Invert the value returned in a
+                and 31                  ; mask the bottom 5 bytes to see if a key was pressed
+                cp 0                    ; Was a key pressed? (ie. the value won't be 0)
+                jr nz, okRedef          ; Yup, lets redefine that key
+                inc de
+                djnz scanKeys           ; If not, lets keep scanning the next channel
+                jr waitForKey           ; Once done, we just go back and scan again
+okRedef         push af                 ; Yup - a key was pressed.  Lets push all our registers to back them up
+                push de
+                push hl
+                call shortBlip          ; Make a short sound.  This gives the user time to release a key
+                pop hl                  ; Restore our registers
+                pop de
+                pop af
+                pop ix                  ; And don't forget our first push that we did for the key loop
+                pop bc
+                ld (ix+1),a             ; Store the bit value for key
+                ld a,(de)               ; Get the channel it was read from
+                ld (ix+0),a               ; Store this value
+                inc ix                  ; and move to next key entry
+                inc ix
+                inc ix
+                djnz redfLoop           ; And go back to loop through the keys
+                ret                     ; Once done all 5, exit
+                
 
 ; This routine prints text data to the screen, byte by byte.  Means we can just print any length without
 ; calculating bytes, etc.  Text data just has to terminate with a 255 byte value
-printStr    push hl                 ; When calling, pass hl = address of text data
-            ld a,2
-            call 5633               ; Set print area to upper screen
-            pop hl                  ; Restore hl pointer
-strLoop     ld a,(hl)               ; Loop through each byte
-            cp 255                  ; Have we reached the end of the data yet?
-            ret Z                   ; Yup, we can exit this routine
-            push hl                 ; Otherwise lets quickly push hl
-            rst 16                  ; send the print code (in a) to the screen
-            pop hl
-            inc hl                  ; Go to next byte
-            jr strLoop              ; and repeat until done
+printStr        push hl                 ; When calling, pass hl = address of text data
+                ld a,2
+                call 5633               ; Set print area to upper screen
+                pop hl                  ; Restore hl pointer
+strLoop         ld a,(hl)               ; Loop through each byte
+                cp 255                  ; Have we reached the end of the data yet?
+                ret Z                   ; Yup, we can exit this routine
+                push hl                 ; Otherwise lets quickly push hl
+                rst 16                  ; send the print code (in a) to the screen
+                pop hl
+                inc hl                  ; Go to next byte
+                jr strLoop              ; and repeat until done
             
 ; -------------------------------------------------------------------------------------------------------
 ; SOUND EFFECTS : Routines that blip and buzz
 ; -------------------------------------------------------------------------------------------------------
 ; SFX : Simple beep tone used when keys are redefined.  Add's a pause to the code so that it
 ; doesn't jump quickly to next key (and annoy heavy fingered gamers)
-shortBlip   ld hl,1500              ; Load tone into hl
-            ld de,60                ; Load length into de
-            call 949                ; Call rom routine to 'beep'
-            ret
+shortBlip       ld hl,1500              ; Load tone into hl
+                ld de,60                ; Load length into de
+                call 949                ; Call rom routine to 'beep'
+                ret
 
 ; SFX : Create a very high pitch chirp for use in game (fire bullet?)
-sfxchirp    ld hl,100               ; hl = pitch
-            ld de,1                 ; de = length (1 click)
-            ld b,32                 ; Loop 32 times - shorten for quicker chirp
-sfxchloop   push hl
-            push de
-            push bc
-            call 949                ; Call rom routine to 'bip' at tone
-            pop bc
-            pop de
-            pop hl
-            inc hl                  ; inc pitch to lower it a little and get chirp vs tone
-            inc hl
-            inc hl
-            djnz sfxchloop          ; and repeat
-            ret
+sfxchirp        ld hl,100               ; hl = pitch
+                ld de,1                 ; de = length (1 click)
+                ld b,32                 ; Loop 32 times - shorten for quicker chirp
+sfxchloop       push hl
+                push de
+                push bc
+                call 949                ; Call rom routine to 'bip' at tone
+                pop bc
+                pop de
+                pop hl
+                inc hl                  ; inc pitch to lower it a little and get chirp vs tone
+                inc hl
+                inc hl
+                djnz sfxchloop          ; and repeat
+                ret
 
 ; SFX : Low single blip (short, could be used for item move, etc)
-sfxBlip     ld hl,1000             ; Load tone into hl
-            ld de,1                 ; Load length into de
-            call 949                ; Call rom routine to 'beep'
-            ret
+sfxBlip         ld hl,1000             ; Load tone into hl
+                ld de,1                 ; Load length into de
+                call 949                ; Call rom routine to 'beep'
+                ret
             
 ; SFX : Create white noise (ideal for when mushroom hit/player hit, etc)
-sfxWN       ld hl,0                 ; Point to location in ROM
-            ld d,16                 ; d = 16 to toggle speaker on and off
-            ld b,128                ; b = loop 128 clicks
-WNloop      ld a,d                  ; Get speaker toggle into a
-            and 248                 ; clear any bits that would flicker the border
-            out (254),a             ; switch speaker on/off
-            cpl                     ; invert a - if speaker on, then speaker off
-            ld d,a                  ; Update d with new toggled value
-            ld c,(hl)               ; Get the byte value from ROM - this will give random pause
-WNpause     dec c                   ; pause for random ROM value length
-            jr nz, WNpause
-            inc hl                  ; Inc to the next ROM address
-            djnz WNloop             ; and repeat
-            ret
+sfxWN           ld hl,0                 ; Point to location in ROM
+                ld d,16                 ; d = 16 to toggle speaker on and off
+                ld b,128                ; b = loop 128 clicks
+WNloop          ld a,d                  ; Get speaker toggle into a
+                and 248                 ; clear any bits that would flicker the border
+                out (254),a             ; switch speaker on/off
+                cpl                     ; invert a - if speaker on, then speaker off
+                ld d,a                  ; Update d with new toggled value
+                ld c,(hl)               ; Get the byte value from ROM - this will give random pause
+WNpause         dec c                   ; pause for random ROM value length
+                jr nz, WNpause
+                inc hl                  ; Inc to the next ROM address
+                djnz WNloop             ; and repeat
+                ret
     
 ; SFX : Zap FX - kinda a phasor effect.  Interesting - could be handy for player zapped
 ; or start of new level...  Something to think about...
-sfxZap      ld hl,1000              ; Start by resetting tones
-            ld (wblT1),hl
-            ld hl,2000
-            ld (wblT2),hl
-            ld de,1                 ; Set the de to the length of the blip
-            ld b,16                 ; Length of the sound effect 
-zapLoop     ld hl,(wblT1)           ; Load the first tone
-            push de
-            push bc
-            call 949                ; Beep
-            pop bc
-            pop de
-            ld hl,(wblT2)           ; Load the second tone
-            push de
-            push bc
-            call 949                ; Beep
-            pop bc
-            pop de
-            push de
-            ld hl,(wblT2)           ; Now we decrease second tone (bigger values = lower tone)
-            ld de,32                ; Amount to decrease/increase.  For longer loops
-                                    ; set with b at start, make smaller as can get wierd.
-            adc hl,de
-            ld (wblT2),hl           ; And increase the first tone
-            ld hl,(wblT1)
-            sbc hl,de
-            ld (wblT1),hl
-            pop de
-            djnz zapLoop            ; And loop
-            ret
+sfxZap          ld hl,1000              ; Start by resetting tones
+                ld (wblT1),hl
+                ld hl,2000
+                ld (wblT2),hl
+                ld de,1                 ; Set the de to the length of the blip
+                ld b,16                 ; Length of the sound effect 
+zapLoop         ld hl,(wblT1)           ; Load the first tone
+                push de
+                push bc
+                call 949                ; Beep
+                pop bc
+                pop de
+                ld hl,(wblT2)           ; Load the second tone
+                push de
+                push bc
+                call 949                ; Beep
+                pop bc
+                pop de
+                push de
+                ld hl,(wblT2)           ; Now we decrease second tone (bigger values = lower tone)
+                ld de,32                ; Amount to decrease/increase.  For longer loops
+                                        ; set with b at start, make smaller as can get wierd.
+                adc hl,de
+                ld (wblT2),hl           ; And increase the first tone
+                ld hl,(wblT1)
+                sbc hl,de
+                ld (wblT1),hl
+                pop de
+                djnz zapLoop            ; And loop
+                ret
             
 ; FX table tones.  One rises, one lowers
-wblT1       defw    1000
-wblT2       defw    2000            
+wblT1           defw    1000
+wblT2           defw    2000            
+
+; SFX for the spider.  When it moves, lets make a grazy short click with an up-down tone based
+; on its position.  We can do this by simply getting the spider Y and X, then making a simple click
+; after adding them together.
+;
+sfxSpider       ld a, (spider+1)
+                ld l,a
+                ld a, (spider+2)
+                ld h,a
+                ld de,1
+                call 949
+                ret
 
 ; -------------------------------------------------------------------------------------------------------           
 ; Pseudo Random Number generator : This code is NOT mine, and was sourced from cpcwiki:
 ; http://www.cpcwiki.eu/forum/programming/pseudo-random-number-generation/
 ;
-; Have however modified this for centipede so values are limited to 1-15 (ideal for screen of this game)
+; Have however modified this for this centipede game.  Pass limit in d reg. (15 or 31)
 ; The 8-bit-Random value is returned in a
 rand
-            ld a,(rndf)         ; Grab rndf
-            ld b,&f             ; Set b to 15
-            ld c,0              
-            ld hl,rnd0+&e       ; hl = address rnd0 + 14
-                                ; (last value on rnd3 list)
+                ld a,(rndf)         ; Grab rndf
+                ld b,&f             ; Set b to 15
+                ld c,0              
+                ld hl,rnd0+&e       ; hl = address rnd0 + 14
+                                    ; (last value on rnd3 list)
 _rnd_add
-            adc a,(hl)          ; Add and carry value from (hl) to a
-            ld (hl),a           ; Replace contents of hl with a
-            dec hl              ; Decrease hl
-            djnz _rnd_add       ; Repeat this bc times (15)
-            ld b,&10            ; Set b to 16
-            ld hl,rnd0          ; point hl to rnd0 again
+                adc a,(hl)          ; Add and carry value from (hl) to a
+                ld (hl),a           ; Replace contents of hl with a
+                dec hl              ; Decrease hl
+                djnz _rnd_add       ; Repeat this bc times (15)
+                ld b,&10            ; Set b to 16
+                ld hl,rnd0          ; point hl to rnd0 again
 _rnd_inc
-            inc (hl)            ; Increment the value in (hl)
-            inc hl              ; go to the next rnd*
-            djnz _rnd_inc       ; repeat bc times (16)
-            ld a,(rnd0)         ; grab the value at rnd0
-            and a               ; and a on a
-            and 15              ; Mask this so value is only 0-15
-            cp 0
-            jr z,settoone       ; In this game, we want to start at line 1, not 0 (where the score is)
-            ret
-settoone    ld a,1
-            ret
+                inc (hl)            ; Increment the value in (hl)
+                inc hl              ; go to the next rnd*
+                djnz _rnd_inc       ; repeat bc times (16)
+                ld a,(rnd0)         ; grab the value at rnd0
+                and a               ; and a on a
+                and d               ; Mask this so value is only 0-15
+                cp 0
+                jr z,settoone       ; In this game, we want to start at line 1, not 0 (where the score is)
+                ret
+settoone        ld a,1
+                ret
 
 ; Random table data
-rnd0    defb    $64
-rnd1    defb    $76
-rnd2    defb    $85
-rnd3    defb    $54,$f6,$5c,$76,$1f,$e7,$12,$a7,$6b,$93,$c4,$6e,$32
-rndf    defb    $1b
+rnd0            defb    $64
+rnd1            defb    $76
+rnd2            defb    $85
+rnd3            defb    $54,$f6,$5c,$76,$1f,$e7,$12,$a7,$6b,$93,$c4,$6e,$32
+rndf            defb    $1b
 ; -------------------------------------------------------------------------------------------------------           
 
 ; Check for a dead centipede.  If there are any active segments, we just exit the routine
 ; If the loop reaches the end of the data, we didn't find any live segments so game over!
 
-deadCent    ld ix,centipede
-deadLoop    ld a,(ix+0)
-            cp 128
-            jr z, gameOver
-            ld a,(ix+0)
-            cp 255      ; Is a segment active?
-            ret z       ; Ok, we can exit
-            cp 64       ; Is it Kamikaze (ie. Alive)
-            ret z       ; Ok as well... exit
+deadCent        ld ix,centipede
+deadLoop        ld a,(ix+0)
+                cp 128
+                jr z, gameOver
+                ld a,(ix+0)
+                cp 255      ; Is a segment active?
+                ret z       ; Ok, we can exit
+                cp 64       ; Is it Kamikaze (ie. Alive)
+                ret z       ; Ok as well... exit
 
-            inc ix      ; Next segment
-            inc ix
-            inc ix
-            inc ix
-            jr deadLoop ; And loop
+                inc ix      ; Next segment
+                inc ix
+                inc ix
+                inc ix
+                jr deadLoop ; And loop
 
-gameOver    call cls        ; Clear screen
-            call printGO    ; Print Game Over
-            ld a,32         ; Set a to flag as 'centipede destroyed'
-            ret             ; Return back to our main loop
+gameOver        call cls        ; Clear screen
+                call printGO    ; Print Game Over
+                ld a,32         ; Set a to flag as 'centipede destroyed'
+                ret             ; Return back to our main loop
 ; -------------------------------------------------------------------------------------------------------
 ; -------------------------------------------------------------------------------------------------------
 ; GAME LOOP : This is a test.  Loops until the centipede is all dead
 ; -------------------------------------------------------------------------------------------------------
 ; -------------------------------------------------------------------------------------------------------
-M_GLOOP     call deadCent   ; Check to see if the centipede is dead
-                            ; a will be 32 if this is true
-                            
-            cp 32           ; Was the centipede dead?
-            jr z,exitGame   ; Yup - exit!
+r_RUNME         call resetSpider    ; Reset the spider data
+                call resetScorp     ; Reset the scorpion data
+                call resetFlea      ; Reset the flea data
+            
+M_GLOOP         call deadCent   ; Check to see if the centipede is dead
+                                ; a will be 32 if this is true
+                                
+                cp 32           ; Was the centipede dead?
+                jr z,exitGame   ; Yup - exit!
 
-            ; Otherwise lets keep playing the game
-            call r_movecentipede
-            call sfxBlip
-            call r_theflea
-            call r_thescorpion
-            call r_thespider
-            call r_moveplayer
-            call printScore
-PokeSpeed   call sfxchirp       ; This short blip may be annoying,
-                                ; but it does add a quicky 'timing' delay
-            jr M_GLOOP
+                ; Otherwise lets keep playing the game
+                call r_movecentipede
+                ;call sfxBlip
+                call r_theflea
+                call r_thescorpion
+                call r_thespider
+                call r_moveplayer
+                call printScore
+                call framespeed ; Try and keep game running at constant 25fps if possible.
+                jr M_GLOOP
 
-exitGame    ret
+exitGame        ret
 
 gamespeed       defb    32
+
+
+; Draw a screenload of mushrooms... (drawG(ame)S(creen))
+; Basically clear screen, then use random numbers to draw up to xxx of them
+drawGS          call cls
+                ld b,24         ; Lets start with 24 mushies
+gsMush          push bc         ; Quickly save the loop counter
+
+                ; Grab random coordinates.
+                ld d,31         ; Set mask to choose for X (31 chars)
+                call rand       ; Start with X - basically random twice
+                ld c,a          ; and add
+                
+                push bc         ; Lets pick the Y
+                ld d,15         ; Set mask
+                call rand
+                pop bc
+                ld b,a
+                
+                ; Draw a mushroom
+                ld (charpos),bc
+                ld ix,gfxmushroom
+                call drawChar
+                
+                call sfxchirp       ; Make sound
+
+                pop bc
+                djnz gsMush     ; Loop until all mushrooms are displayed
+                ret
+
+; -------------------------------------------------------------------------------------------------------           
+; SET UP DATA
+; Routines to reset data for new items.  In this case, reset the spider, flea, centipede locations.
+; Eventually once levels are defined, more data can be initiated (ie. multiple centipedes, etc) for
+; difficulty, etc
+;
+; Data is intiated by simply copying values from a 'defaults' location.
+; -------------------------------------------------------------------------------------------------------           
+
+; Spider - 12 bytes of data
+resetSpider     ld hl,DEFspider     ; hl = default data
+                ld de,spider        ; de = location of game data
+                ld bc,13
+                ldir                ; Copy
+                ret
+; Flea - 8 bytes of data
+resetFlea       ld hl,DEFflea
+                ld de,flea
+                ld bc,9
+                ldir
+                ret
+; Scorpion - 12 bytes of data
+resetScorp      ld hl,DEFscorpion
+                ld de,scorpion
+                ld bc,13
+                ldir
+                ret
+; Timing control for the game.  This should technically try and retain 25 fps speed.
+; Code found here : https://chuntey.wordpress.com/2013/10/02/how-to-write-zx-spectrum-games-chapter-12/
+
+framespeed      ld hl,pretim    ; Get last time setting
+                ld a,(23672)    ; Grab system time setting
+                sub (hl)    ; Subtract the value from a
+                cp 2        ; was it 2 (ie. every 2 frames @ 50fps)
+                jr nc, waiting  ; Yup - store the time and exit
+                jp framespeed   ; Otherwise jump back and check again
+waiting         ld a,(23672)
+                ld (hl),a
+                ret
+pretim          defb 0      ; Store previous time setting
 
 ; -------------------------------------------------------------------------------------------------------           
 ; DATA / INFORMATION
@@ -1603,32 +1774,32 @@ gamespeed       defb    32
 ; Note that graphics are included for the up/down directions for the centipede for future additions
 ; otherwise this game mainly just makes use of the left and right and down (kamikaze). Up... Maybe.
 ; -------------------------------------------------------------------------------------------------------           
-gfxblank          defb    0,0,0,0,0,0,0,0,bgclr
-gfxmushroom       defb    60,106,213,255,36,36,24,0
-attmushroom       defb    4
-gfxflea           defb    56,126,255,252,42,80,0,0
-attflea           defb    6
-gfxplayer         defb    24,24,60,126,126,90,60,0
-attplayer         defb    71
-gfxbullet         defb    16,8,16,8,16,8,16,8
-attbullet         defb    7
-gfxcentU          defb    0,60,126,90,126,126,153,0
-attcentU          defb    2
-gfxspider         defb    0,90,189,60,90,165,129,0
-attspider         defb    5
-gfxscorpionR      defb    0,134,105,162,30,188,96,128
-attscorpionR      defb    67
-gfxcentL          defb    2,60,108,126,126,108,60,2
-attcentL          defb    2
-gfxcentD          defb    0,153,126,126,90,126,60,0
-attcentD          defb    2
-gfxcentR          defb    64,60,54,126,126,54,60,64
-attcentR          defb    2
-gfxscorpionL      defb    0,97,150,69,120,61,6,1
-attscorpionL      defb    67
+gfxblank        defb    0,0,0,0,0,0,0,0,bgclr
+gfxmushroom     defb    60,106,213,255,36,36,24,0
+attmushroom     defb    4
+gfxflea         defb    56,126,255,252,42,80,0,0
+attflea         defb    6
+gfxplayer       defb    24,24,60,126,126,90,60,0
+attplayer       defb    71
+gfxbullet       defb    16,8,16,8,16,8,16,8
+attbullet       defb    7
+gfxcentU        defb    0,60,126,90,126,126,153,0
+attcentU        defb    2
+gfxspider       defb    0,90,189,60,90,165,129,0
+attspider       defb    5
+gfxscorpionR    defb    0,134,105,162,30,188,96,128
+attscorpionR    defb    67
+gfxcentL        defb    2,60,108,126,126,108,60,2
+attcentL        defb    2
+gfxcentD        defb    0,153,126,126,90,126,60,0
+attcentD        defb    2
+gfxcentR        defb    64,60,54,126,126,54,60,64
+attcentR        defb    2
+gfxscorpionL    defb    0,97,150,69,120,61,6,1
+attscorpionL    defb    67
 ; Poison mushroom - same graphic as mushroom - repeated here if needed.
-gfxpoison         defb    60,106,213,255,36,36,24,0
-attPoison         defb    poisonclr
+gfxpoison       defb    60,106,213,255,36,36,24,0
+attPoison       defb    poisonclr
 
 
 ; -------------------------------------------------------------------------------------------------------           
@@ -1676,7 +1847,7 @@ spider          defb    255,30,16,1,0
 spiderbg        defw    gfxblank
 spidertick      defb    0
 spidertmax      defb    64
-spiderspeed     defb    1
+spiderspeed     defb    0,2             ; First byte = counter, second = tick value
 spidermove      defw    randmotion
 randmotion      defb    1,1,0,1,255,255,255,0,1,0,1,1,1,0,0,0,0,255,255,1,1,1,1,255,0,0,1,1,1,0,0,0,0,0
                 defb    1,1,1,255,255,255,255,0,1,0,255,255,1,0,1,0,1,0,255,0,255,0,255,0,1,255,255,1,1
@@ -1692,7 +1863,7 @@ flea            defb    0,10,0
 fleatick        defb    0
 fleatmax        defb    64
 fleadrop        defw    randdrop
-fleaspeed       defb    2
+fleaspeed       defb    0,2             ; First byte = counter, second = tick value
 randdrop        defb    1,0,0,0,0,0,0,0,1,0,0,1,0,0,0,1,0,1,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,1,0,0,1,0,0,1
                 defb    1,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,1,0,0,0,1,0,1,0,1,0,0
                 defb    1,0,1,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,1,0,1,0,0,0
@@ -1708,7 +1879,7 @@ scorpion        defb    255,0,10,1
 scorpionbg      defb    0,0
 scorpiontick    defb    0
 scorpiontmax    defb    64
-scorpionspeed   defb    2
+scorpionspeed   defb    0,2             ; First byte = counter, second = tick value
 scorpionerase   defw    gfxblank
 scorpionerclr   defb    bgclr
 
@@ -1770,6 +1941,34 @@ txtRedefFR      defb    22,11,14
                 defb    16,7,17,0
                 defm    "FIRE"
                 defb    255
+
+; -------------------------------------------------------------------------------------------------------
+; DEFAULT VALUES
+; -------------------------------------------------------------------------------------------------------
+DEFspider       defb    0,30,16,1,0
+                defw    gfxblank
+                defb    0
+                defb    64
+                defb    3,3
+                defw    randmotion          
+DEFflea         defb    0,10,0
+                defb    0
+                defb    64
+                defw    randdrop
+                defb    2,2
+DEFscorpion     defb    0,4,10,1
+                defb    0,0
+                defb    0
+                defb    64
+                defb    2,2
+                defw    gfxblank
+                defb    bgclr
+
+; Centipedes Initialisation data - Left X, Y, X move, segmentCount
+DEFcent01       defb    10,1,0,8
+DEFcent02       defb    1,4,movRight,10
+DEFcent03       defb    12,8,0,11
+DEFcent04       defb    0,1,movRight,16
                 
 ; -------------------------------------------------------------------------------------------------------
 ; CENTIPEDE : Data at end so can be expanded without overwriting other data
@@ -1786,4 +1985,4 @@ centipede       defb    255,10,0,1                  ; A segment (active, x, y, d
                 defb    255,16,0,1
                 defb    255,17,0,1
                 defb    128                         ; 128 terminates centipede segment list
-centipedespeed  defb    1                           ; Speed of the centipede
+centipedespeed  defb    2,2                         ; Speed of the centipede
