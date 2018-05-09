@@ -9,7 +9,7 @@
 ; Note that all the routines that are called to control elements in the game (ie the ones to call in
 ; a game loop) have names prefixed with 'r_'
 ;
-; For testing, the game loop is called M_GLOOP - note that you have to destroy the centipede to exit
+; For testing, the game loop is called r_RUNME - note that you have to destroy the centipede to exit
 ; back to BASIC (for now)
 ;
 ; This game incorporates a pseudo number generator sourced from cpcwiki, with some minor tweaks:
@@ -55,7 +55,7 @@ org 40000
 ; GAME CHARACTER ROUTINES
 ; The following routines are all used to clear, move and draw the characters in our game.  All code is
 ; collected from a variety of example pieces of code found on github below
-; https://github.com/kevman3d/ZXSpeccy-z80-projects
+; https://github.com/kevman3d/ZXSpeccy-z80-projects/tree/master/centiblock
 ; -------------------------------------------------------------------------------------------------------
 
 ; -------------------------------------------------------------------------------------------------------
@@ -343,8 +343,27 @@ goplayer        ld ix,player            ; Lets point IX at the player data
                 ld (tempX),a            ; Store the X location temporarily into a memory location
                 ld a,(ix+2)             ; Read the segment's Y location
                 ld (tempY),a            ; Store the Y location temporarily
+            
+                ; Was the player hit by the centipede, flea or spider?
+                ld c,(ix+1)             ; Poke the YX values first
+                ld b,(ix+2)
+                ld (charPos),bc
+                push ix
+                call getattr            ; But first test to make sure that we can move down
+                pop ix
+                cp centclr              ; Check to see if it was a centipede
+                jp z, playerDead        ; And if so, jump to playerDead
+                cp fleaclr              ; Was it hit by a flea?
+                jp z, playerDead        ; If so, jump to player dead
+                cp spiderclr            ; Lastly, was it a spider?
+                jp z, playerDead        ; and yes?  We're dead!
                 
-                ; Otherwise, clear the player from the screen first
+                jr erasePlayer          ; Lets jump to the erase player
+
+playerDead      ld a,32                 ; Set the a register - 32 = 'dead'
+                ret                     ; and exit.
+                
+erasePlayer     ; Otherwise, clear the player from the screen first
                 ld c,(ix+1)             ; Poke the YX values first
                 ld b,(ix+2)
                 ld (charPos),bc
@@ -631,6 +650,7 @@ drawBullet      ld c,(ix+1)             ; Poke the YX values first
                 ld (charPos),bc
                 ld ix,gfxbullet         ; Set IX to the bullet graphic
                 call drawChar           ; And draw the bullet
+                xor a                   ; Zero out a
                 ret
                 
                 ; Draw a boom FX and then kill the bullet.
@@ -665,6 +685,7 @@ goBoomS         ld c,(ix+1)     ; If spider was shot
                 ld (spider),a       ; reset the spider
                 
 endBullet       ld (ix+0),swOff         ; Deactivate the bullet
+                xor a                   ; Zero out a (32 = dead so lets make sure its not 32!)
                 ret
 
 ; -------------------------------------------------------------------------------------------------
@@ -1681,7 +1702,10 @@ M_GLOOP         call deadCent   ; Check to see if the centipede is dead
                 call r_theflea
                 call r_thescorpion
                 call r_thespider
-                call r_moveplayer
+                call r_moveplayer   ; Move the player and bullet.  If player dead, a register will be 32
+                cp 32               ; Has the player died?
+                jr z, exitGame      ; Yup, lets 'game over'...
+                
                 call printScore
                 call framespeed ; Try and keep game running at constant 25fps if possible.
                 jr M_GLOOP
