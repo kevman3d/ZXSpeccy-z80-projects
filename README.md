@@ -29,7 +29,10 @@ The following files are examples, snapshots or other non-code files.  These are 
 - **centipede_WIP_230418.sna** : WIP - ZX Spectrum snapshot (.sna) (23-04-18). Dropping 'flea' added.
 - **centipede_WIP_240418.sna** : WIP - ZX Spectrum snapshot (.sna) (23-04-18). Scorpion added.
 - **centipede_WIP_010518.sna** : WIP - ZX Spectrum snapshot (.sna) (01-05-18). Spider added. Mostly ready to go! (exciting)
-- **centipede_WIP_080518.sna** : WIP - ZX Spectrum snapshot (.sna) (01-05-18). Various game speed controls added. More playable.
+- **centipede_WIP_080518.sna** : WIP - ZX Spectrum snapshot (.sna) (08-05-18). Various game speed controls added. More playable.
+- **centipede_WIP_090518.sna** : WIP - ZX Spectrum snapshot (.sna) (09-05-18). Full player and creature collision - now a GAME!
+- **centipede_WIP_110518.sna** : WIP - ZX Spectrum snapshot (.sna) (11-05-18). Centipede generator! Ready to add 'levels'.
+- _(Note : 11-05-18 has **no** accompanying video - need to optimise screen draw when lots of centipedes(flickering))_
 - **1986_KP_Centipede_design.pdf** : Scanned hand-written notebook plan
 - **centipede_example_demo.sna** : ZX Spectrum snapshot (.sna) that can be loaded in an emulator and run for _centiblock_ demo.
 - **spiderDemo_centiblock_test.sna** : ZX Spectrum snapshot (.sna) to load and run the _centiblock_ spider code.
