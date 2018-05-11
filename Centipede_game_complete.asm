@@ -185,7 +185,7 @@ centnodown      ld a,(tempY)            ; Otherwise lets reset the Y location (e
 ; * MOVECENTIPEDE : This routine clears, moves and redraws the centipede.  Relies on the centsegment
 ; routine to move and update each segments positions.
 ; -------------------------------------------------------------------------------------------------------
-r_movecentipede ld de,centipede         ; set up the pointer to the centipede data
+r_movecentipede ld de,centipedeData        ; set up the pointer to the centipede data
                 push de                 ; store this in the stack so we can retrieve it
                 ld ixh,d
                 ld ixl,e
@@ -287,7 +287,7 @@ nxtSegmentD     inc ix                  ; go to the next segment
 ; segment
 ; -------------------------------------------------------------------------------------------------------
 
-killcentipede   ld ix,centipede         ; set up the pointer to the centipede data
+killcentipede   ld ix,centipedeData     ; set up the pointer to the centipede data
 killloop        ld a,(ix+0)             ; test to see if we've reached the end of the data
                 cp 128
                 ret z                   ; If yes, exit
@@ -1661,7 +1661,7 @@ rndf            defb    $1b
 ; Check for a dead centipede.  If there are any active segments, we just exit the routine
 ; If the loop reaches the end of the data, we didn't find any live segments so game over!
 
-deadCent        ld ix,centipede
+deadCent        ld ix,centipedeData
 deadLoop        ld a,(ix+0)
                 cp 128
                 jr z, gameOver
@@ -1689,6 +1689,13 @@ gameOver        call cls        ; Clear screen
 r_RUNME         call resetSpider    ; Reset the spider data
                 call resetScorp     ; Reset the scorpion data
                 call resetFlea      ; Reset the flea data
+                
+                ; Testing this code to generate new centipedes for changing levels later
+                ld ix, cent04
+                call resetCentipede
+
+                ; Clear screen and draw mushrooms
+                call drawGS
             
 M_GLOOP         call deadCent   ; Check to see if the centipede is dead
                                 ; a will be 32 if this is true
@@ -1916,6 +1923,9 @@ charPos         defb    16,12                       ; Character position (used b
 tempX           defb    0                           ; Temporary X storage
 tempY           defb    0                           ; Temporary Y storage
 tempA           defb    0                           ; Temporary attribute used by setattr
+highChar        defb    0,0,0,0,0,0                 ; 6 Digit High score counters
+lives           defb    3                           ; Lives counter
+levelC          defb    0                           ; Levels counter
 
 ; -------------------------------------------------------------------------------------------------------           
 ; TEXT DATA FOR PRINTING
@@ -1936,7 +1946,7 @@ txtRedefKeys    defb    22,0,13                     ; AT 0,13
                 defb    16,7,17,2                   ; Ink 7, Paper 2
                 defm    "DEFINE"                    ; "DEFINE"
                 defb    22,1,14                     ; AT 1,14 (next line down)
-                defm   "KEYS"                      ; "KEYS"
+                defm   "KEYS"                       ; "KEYS"
                 defb    255                         
 
 ; Individual text per keypress when defining keys.  Note use of 255 to signal end of each line of text
@@ -1968,6 +1978,7 @@ txtRedefFR      defb    22,11,14
 
 ; -------------------------------------------------------------------------------------------------------
 ; DEFAULT VALUES
+; These will be copied intially when each level starts, then the level data will be overlaid
 ; -------------------------------------------------------------------------------------------------------
 DEFspider       defb    0,30,16,1,0
                 defw    gfxblank
@@ -1988,19 +1999,111 @@ DEFscorpion     defb    0,4,10,1
                 defw    gfxblank
                 defb    bgclr
 
-; Centipedes Initialisation data - Left X, Y, X move, segmentCount
-DEFcent01       defb    10,1,0,8
-DEFcent02       defb    1,4,movRight,10
-DEFcent03       defb    12,8,0,11
-DEFcent04       defb    0,1,movRight,16
-                
+; -------------------------------------------------------------------------------------------------------
+; LEVEL DATA
+; This is where all the variations within the game are stored.
+; -------------------------------------------------------------------------------------------------------
+; CENTIPEDE DATA
+; centipedes - more segments, segments that start from multiple locations and directions, etc.  When
+; level specifies a different centipede, we just do a dump of this information to the end address. Each
+; block ends in 128 as expected.
+;
+; To optimise the use of memory, centipede data is stored in blocks of 4 bytes, ending data in 128
+; DATA : segment counter, start X, start Y, direction
+; -------------------------------------------------------------------------------------------------------
+; Default starting centipede (8 segments, starting at X=10, Y=1, moving right (1))
+cent01          defb    8,10,1,1
+                defb    128
+; Second centipede starts on left and moves right
+cent02          defb    8,0,1,255
+                defb    128
+; Third centipede is built from two blocks
+cent03          defb    10,20,1,1       ; Starts on right of screen, 10 segments
+                defb    8,0,4,255       ; Start on left of screen, 10 segments, starting 4 lines down
+                defb    128
+; Fourth centipede is built from three blocks, each down the right
+cent04          defb    10,20,4,1
+                defb    8,22,8,1
+                defb    10,10,10,1
+                defb    128
+; For now, that's enough test ones.  Add when we have a completed game.
+
+; -------------------------------------------------------------------------------------------------------
+; LEVELS
+; Each level comprises basic settings for all items in the game.  Which centipede to use, speeds for
+; each creature, appearance rates, etc.  There will be a few, with the last one being the default
+; for the rest of the game (it will be hard, I imagine there could be a 'completed game' and roll back
+; to start if a player can reach it)
+; -------------------------------------------------------------------------------------------------------
+level1          defw    cent01          ; Which centipede data to use
+L1cspeed        defb    3               ; Centipede speed
+L1fspeed        defb    4,200           ; Flea speed and occurance timer
+L1scspeed       defb    4,255           ; Scorpion speed and occurance
+L1spspeed       defb    4,164           ; Spider speed and occurance
+L1mushrooms     defb    32              ; Number of mushrooms to generate (does not clear screen)
+
+level2          defw    cent02          ; Which centipede data to use
+L2cspeed        defb    3               ; Centipede speed
+L2fspeed        defb    4,200           ; Flea speed and occurance timer
+L2scspeed       defb    4,255           ; Scorpion speed and occurance
+L2spspeed       defb    4,164           ; Spider speed and occurance
+L2mushrooms     defb    8               ; Number of mushrooms to generate/add (does not clear screen)
+
+level3          defw    cent03          ; Which centipede data to use
+L3cspeed        defb    3               ; Centipede speed
+L3fspeed        defb    3,128           ; Flea speed and occurance timer
+L3scspeed       defb    3,200           ; Scorpion speed and occurance
+L3spspeed       defb    2,132           ; Spider speed and occurance
+L3mushrooms     defb    8               ; Number of mushrooms to generate/add (does not clear screen)
+
+; For now there are 3 test ones.  Add more once we have a completed game
+
 ; -------------------------------------------------------------------------------------------------------
 ; CENTIPEDE : Data at end so can be expanded without overwriting other data
 ; Each segment of a centipede contains an active flag (0 dead,128 on,64 kamikaze),x,y and delta x (+/-)
 ; 128 terminates the list.  This enables the ability to inc or dec the length of the centipede.
 ; centipedespeed is a tick counter for motion speed - ie. every x ticks, update the movement
-; -------------------------------------------------------------------------------------------------------           
-centipede       defb    255,10,0,1                  ; A segment (active, x, y, dx)
+; -------------------------------------------------------------------------------------------------------
+
+; Routine to populate the centipede data at the end of this code
+; Load ix with pointer to cent## data before calling.
+resetCentipede  ld hl,centipedeData     ; Point hl to the centipede mem location
+
+resetCLoop      ld a,(ix+0)             ; Get the first byte from the cent## data
+                cp 128                  ; are we at the end of the centipede data?
+                jr z, resetCfin         ; Yup, jump to the end
+
+                ld b,(ix+0)             ; Get the segment count
+                ld d,(ix+1)             ; Get the x starting location
+
+populateCLoop   ld (hl),255             ; Set segment to active
+                inc hl
+                ld (hl),d               ; Set the X location
+                inc hl
+                ld a,(ix+2)
+                ld (hl),a               ; Set the Y location
+                inc hl
+                ld a,(ix+3)             
+                ld (hl),a               ; Set the direction to move
+                inc hl
+                inc d                   ; Increment the X location
+                dec b                   ; decrease the segment counter
+                ld a,b
+                cp 0                    ; End of segments?
+                jr nz, populateCLoop    ; And repeat if needed
+                
+                inc ix                  ; Move to next block of the centipede data
+                inc ix
+                inc ix
+                inc ix
+                jr resetCLoop           ; And check for next block
+resetCfin       ; Once we're done...
+                ld (hl),128             ; Set ending value
+                ret                     ; and exit
+                
+                
+centipedespeed  defb    2,2                         ; Speed of the centipede
+centipedeData   defb    255,10,0,1                  ; A segment (active, x, y, dx)
                 defb    255,11,0,1
                 defb    255,12,0,1
                 defb    255,13,0,1
@@ -2009,4 +2112,4 @@ centipede       defb    255,10,0,1                  ; A segment (active, x, y, d
                 defb    255,16,0,1
                 defb    255,17,0,1
                 defb    128                         ; 128 terminates centipede segment list
-centipedespeed  defb    2,2                         ; Speed of the centipede
+
