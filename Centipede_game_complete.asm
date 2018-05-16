@@ -272,7 +272,7 @@ centHGfx        ld a,(ix+3)             ; Read the direction
                 
 centLGfx        ld ix,gfxcentL          ; Set the graphics to left
                 
-drawSegment     call drawChar           ; draw the segments
+drawSegment     call addToPrint           ; draw the segments
 
                 pop ix                  ; Restore the ix back to the centipede data
 nxtSegmentD     inc ix                  ; go to the next segment
@@ -576,7 +576,7 @@ notfired        ld ix,player
                 ld b,(ix+2)
                 ld (charPos),bc
                 ld ix,gfxplayer        ; Set IX to the graphic
-                call drawChar          ; draw ship
+                call addToPrint          ; draw ship
                 
                 ; DRAW BULLET - finish up with checking for bullet hits, either drawing the bullet or
                 ; drawing an explosion/fx instead and deactivating the bullet.
@@ -638,7 +638,7 @@ notfired        ld ix,player
                 ld (charPos),bc
                 push ix
                 ld ix,gfxmushroom       ; Draw a mushroom
-                call drawchar
+                call addToPrint
                 call incScoreT          ; Add 10 to the score
                 pop ix
                 jr endBullet            ; We're done... Disable bullet and exit
@@ -649,7 +649,7 @@ drawBullet      ld c,(ix+1)             ; Poke the YX values first
                 ld b,(ix+2)
                 ld (charPos),bc
                 ld ix,gfxbullet         ; Set IX to the bullet graphic
-                call drawChar           ; And draw the bullet
+                call addToPrint           ; And draw the bullet
                 xor a                   ; Zero out a
                 ret
                 
@@ -680,9 +680,20 @@ goBoomS         ld c,(ix+1)     ; If spider was shot
                 ld (charPos),bc
                 call eraseChar      ; Clear the character
                 call incScoreH      ; increase the score
-                call sfxWN      ; Make white noise
-                xor a
-                ld (spider),a       ; reset the spider
+                call sfxWN          ; Make white noise
+        ld ix,spider
+                ld (ix+0),swOff          ; Otherwise deactivate the spider (left screen)
+                ld (ix+1),0             ; Set the start to the left
+                ld (ix+2),16            ; Start at Y 16
+                ld (ix+3),1             ; X move right
+                ld (ix+4),1             ; Y move down
+
+                ld de,gfxblank          ; Set to a blank character
+                ld (spiderbg),de
+                ld hl,spiderTick
+                ld (hl),0               ; Reset counter
+                ret                     ; and we can exit.
+
                 
 endBullet       ld (ix+0),swOff         ; Deactivate the bullet
                 xor a                   ; Zero out a (32 = dead so lets make sure its not 32!)
@@ -764,7 +775,7 @@ selectDrop      cp swOff
                 push ix
                 push hl
                 ld ix,gfxmushroom
-                call drawChar          ; Draw the mushroom
+                call addToPrint          ; Draw the mushroom
                 pop hl
                 pop ix
                 jr goflea
@@ -810,7 +821,7 @@ drawFlea        ; Draw flea
                 ld b,(ix+2)
                 ld (charPos),bc
                 ld ix,gfxflea
-                call drawChar          ; Draw the flea graphic
+                call addToPrint          ; Draw the flea graphic
                 
                 ; Move our 'pseudo random' table pointer to the next value
                 ld hl,(fleadrop)
@@ -873,7 +884,7 @@ erasescorpion   ; Else lets clear the scorpion
                 ld ix,(scorpionerase)   ; Grab BG element
                 ld a,(scorpionerclr)    ; Grab BG colour
                 ld (tempA),a
-                call drawChar           ; Erase the scorpion
+                call addToPrint           ; Erase the scorpion
                 call setattr            ; Replace the attribute
                 pop ix
                 
@@ -933,12 +944,12 @@ setpoisonmushy  ld c,(ix+1)             ; Poke the YX values first
                 ld a,poisonclr          ; Store poison colour attribute into tempA (used by setattr)
                 ld (tempA),a
                 push ix
-                ld ix,gfxmushroom
-                call drawChar           ; Draw a mushroom
+                ld ix,gfxpoison
+                call addToPrint           ; Draw a mushroom
                 call setAttr            ; Turn poison into normal mushroom (recoloured)
                 ld a,poisonclr
                 ld (scorpionerclr),a    ; Store the colour to the erase colour for now
-                ld hl,gfxmushroom
+                ld hl,gfxpoison
                 ld (scorpionerase),hl   ; store the gfxmushroom
                 pop ix
                 
@@ -948,10 +959,10 @@ drawscorpion    ld a,(ix+3) ; Lets check to see what direction the graphic is fa
                 
                 ; Will need to check the gfx - seems L and R are flipped, but hey, works for now. :)
                 ld ix,gfxscorpionL
-                call drawChar           ; redraw the scorpion in place right-facing.
+                call addToPrint           ; redraw the scorpion in place right-facing.
                 ret                     ; and we're done...
 drawLeft        ld ix,gfxscorpionR
-                call drawChar           ; redraw the scorpion in place left-facing.
+                call addToPrint           ; redraw the scorpion in place left-facing.
                 ret                     ; and we're done...
 
 
@@ -1053,7 +1064,7 @@ movespider      ld ix,spider            ; Set IX to the spider data.
                 ld (charPos),bc
                 push ix
                 ld ix,(spiderbg)
-                call drawChar           ; draw it to erase the spider
+                call addToPrint           ; draw it to erase the spider
                 pop ix
                 
                 ; SPEED CONTROL - This uses a 'ticker' that counts down and sets the interval
@@ -1153,7 +1164,7 @@ spiderOK        ld c,(ix+1)             ; Poke the YX values first
                 call getspiderBG        ; Grab the BGcontents of the spiders new position first
                                         ; and store it
                 ld ix,gfxspider
-                call drawChar           ; then draw the spider
+                call addToPrint           ; then draw the spider
                 call sfxSpider      ; Make sound effect
                 ret                     ; and we're done...
                 
@@ -1301,7 +1312,7 @@ drawbyte        ld a,(ix+0)     ; Grab the pixel data (ix should have the gfx...
 
 ; SHORTCUT ROUTINE TO ERASE A CHARACTER
 eraseChar       ld ix,gfxblank
-                call drawChar
+                call addToPrint
                 ret
 
 ; -------------------------------------------------------------------------------------------------------
@@ -1513,7 +1524,7 @@ printStr        push hl                 ; When calling, pass hl = address of tex
                 pop hl                  ; Restore hl pointer
 strLoop         ld a,(hl)               ; Loop through each byte
                 cp 255                  ; Have we reached the end of the data yet?
-                ret Z                   ; Yup, we can exit this routine
+                ret z                   ; Yup, we can exit this routine
                 push hl                 ; Otherwise lets quickly push hl
                 rst 16                  ; send the print code (in a) to the screen
                 pop hl
@@ -1614,7 +1625,7 @@ sfxSpider       ld a, (spider+1)
                 ld l,a
                 ld a, (spider+2)
                 ld h,a
-                ld de,1
+        ld de,1
                 call 949
                 ret
 
@@ -1689,9 +1700,25 @@ gameOver        call cls        ; Clear screen
 r_RUNME         call resetSpider    ; Reset the spider data
                 call resetScorp     ; Reset the scorpion data
                 call resetFlea      ; Reset the flea data
-                
+                call resetScore     ; Reset the score to 0
+
+                ; For now, here's a messy 'reset player' chunk of code. Will move to a more
+                ; elegant routine for the whole game once all finished.
+                ld hl,player
+                ld (hl),3
+                inc hl
+                ld (hl),16
+                inc hl
+                ld (hl),20
+                inc hl
+                ld (hl),0           ; Reset the bullet
+                inc hl
+                ld (hl),16
+                inc hl
+                ld (hl),19
+
                 ; Testing this code to generate new centipedes for changing levels later
-                ld ix, cent04
+                ld ix, cent03
                 call resetCentipede
 
                 ; Clear screen and draw mushrooms
@@ -1699,25 +1726,24 @@ r_RUNME         call resetSpider    ; Reset the spider data
             
 M_GLOOP         call deadCent   ; Check to see if the centipede is dead
                                 ; a will be 32 if this is true
-                                
                 cp 32           ; Was the centipede dead?
                 jr z,exitGame   ; Yup - exit!
 
-                ; Otherwise lets keep playing the game
-                call r_movecentipede
-                ;call sfxBlip
-                call r_theflea
-                call r_thescorpion
-                call r_thespider
                 call r_moveplayer   ; Move the player and bullet.  If player dead, a register will be 32
                 cp 32               ; Has the player died?
                 jr z, exitGame      ; Yup, lets 'game over'...
+                call r_movecentipede
+                call r_theflea
+                call r_thescorpion
+                call r_thespider
                 
                 call printScore
-                call framespeed ; Try and keep game running at constant 25fps if possible.
+                call drawPrintB     ; our new "update the screen" routine to assist in flicker free gfx
+                call framespeed     ; Try and keep game running at constant 25fps if possible.
                 jr M_GLOOP
 
-exitGame        ret
+exitGame        call drawPrintB     ; Lets update the screen before we exit
+                ret
 
 gamespeed       defb    32
 
@@ -1984,7 +2010,7 @@ DEFspider       defb    0,30,16,1,0
                 defw    gfxblank
                 defb    0
                 defb    64
-                defb    3,3
+                defb    2,2
                 defw    randmotion          
 DEFflea         defb    0,10,0
                 defb    0
@@ -2059,6 +2085,142 @@ L3mushrooms     defb    8               ; Number of mushrooms to generate/add (d
 ; For now there are 3 test ones.  Add more once we have a completed game
 
 ; -------------------------------------------------------------------------------------------------------
+; SCREEN PRINTING : An attempt to optimise the screen draw and update so less flickering through
+; setting up all print characters here.  Original game had each element deleted and redrawn in their
+; routines.  This concept is to change out all the erase/draw calls and have them just store the things
+; required to be printed/erased in a buffer (below).
+;
+; A routine will then be called to 'update' the screen by printing updated details over the top. This
+; includes any erase characters, etc.  Speed will be in just printing what is needed once.
+; -------------------------------------------------------------------------------------------------------
+
+; Routine to add a character to a location in the print buffer.  This will check to see if something
+; at the same location already exists, and if so it will just replace the graphic pointer address.
+;
+; This routine uses the same settings as used by printing routines.  X/Y are stored at charPos and ix
+; contains the address of the graphic.  Ideally any 'drawChar' calls will be replaced with this.
+
+addToPrint      ld hl,printBuffer       ; HL points to the print buffer
+addLoop         ld a,(hl)               ; Query byte
+                cp 128                  ; Are we at the end of the buffer?
+                jr z,addNew             ; Yes, then we can just add the details onto the end
+                
+                ; Otherwise lets check to see if the location exists in the print buffer already
+                ld bc,(charPos)
+                push hl                 ; push hl first
+                ld a,(hl)
+                xor b                   ; xor the value from buffer and the charpos
+                jr nz,nopeNext          ; If values are identical, xor'ing will be 0
+                inc hl
+                ld a,(hl)               ; One worked, so check the next coord.
+                xor c                   ; xor it...
+                jr nz,nopeNext          ; and if it failed then lets keep going.
+                
+                ; Yay!  Its the same - just swap out the address and we're done.
+                inc hl
+                ld a,ixh
+                ld (hl),a
+                inc hl
+                ld a,ixl
+                ld (hl),a
+                pop hl                  ; Better get rid of it from the stack!
+                ret
+nopeNext        ; Just jump over to the next location (4 bytes)
+                pop hl                  ; Restore the location.
+                inc hl                  ; Jump to the next entry in the buffer
+                inc hl
+                inc hl
+                inc hl
+                jr addLoop              ; And loop back to check
+                
+addNew          ; Add the new location here
+                ld bc,(charPos)
+                ld (hl),b               ; Store the X and Y
+                inc hl
+                ld (hl),c
+                inc hl
+                ld a,ixh                ; Store the graphic address
+                ld (hl),a
+                inc hl
+                ld a,ixl
+                ld (hl),a
+                ret                     ; and we're done! :)
+                
+; Routine to step through the print buffer and dump to screen using drawChar
+
+drawPrintB      ld hl,printBuffer
+drawAllLoop     ld a,(hl)               ; Check to see if we're done yet
+                cp 128
+                jr z, clearBuffer       ; if so, clear the buffer
+                
+                ; Otherwise grab the buffer data and call drawChar
+                ld b,(hl)
+                inc hl
+                ld c,(hl)
+                inc hl
+                ld (charPos),bc         ; Set the location on screen
+                ld a,(hl)
+                ld ixh,a
+                inc hl
+                ld a,(hl)
+                ld ixl,a                ; Set IX to the graphic address
+                inc hl
+                push hl
+                call drawChar           ; Call the drawChar function
+                pop hl
+                jr drawAllLoop          ; Repeat
+                
+clearBuffer     ; Blank out the buffer with 128's again, fresh for repopulation
+                ld hl,printBuffer
+                ld b,255
+clbLoop         ld (hl),128
+                inc hl
+                djnz clbLoop
+                ret
+
+; -------------------------------------------------------------------------------------------------------
+; SCREEN PRINT BUFFER : This buffer should have enough space to store what is needed.  Note that no
+; screen location will be stored more than once.  Storage is in X,Y,graphic (4 bytes). Buffer can store 64
+; printable details - 256 bytes (4 x 64).  If needed, can expand later.
+; By default, the buffer is filled with 128's so that the print routine will know when the printing buffer
+; is finished.
+;
+; Note that for some reason, ZXspin didn't like defs num,val so done in bytes...
+; -------------------------------------------------------------------------------------------------------
+printBuffer     defb    128,128,128,128,128,128,128,128
+                defb    128,128,128,128,128,128,128,128
+                defb    128,128,128,128,128,128,128,128
+                defb    128,128,128,128,128,128,128,128
+                defb    128,128,128,128,128,128,128,128
+                defb    128,128,128,128,128,128,128,128
+                defb    128,128,128,128,128,128,128,128
+                defb    128,128,128,128,128,128,128,128
+                defb    128,128,128,128,128,128,128,128
+                defb    128,128,128,128,128,128,128,128
+                defb    128,128,128,128,128,128,128,128
+                defb    128,128,128,128,128,128,128,128
+                defb    128,128,128,128,128,128,128,128
+                defb    128,128,128,128,128,128,128,128
+                defb    128,128,128,128,128,128,128,128
+                defb    128,128,128,128,128,128,128,128
+                defb    128,128,128,128,128,128,128,128
+                defb    128,128,128,128,128,128,128,128
+                defb    128,128,128,128,128,128,128,128
+                defb    128,128,128,128,128,128,128,128
+                defb    128,128,128,128,128,128,128,128
+                defb    128,128,128,128,128,128,128,128
+                defb    128,128,128,128,128,128,128,128
+                defb    128,128,128,128,128,128,128,128
+                defb    128,128,128,128,128,128,128,128
+                defb    128,128,128,128,128,128,128,128
+                defb    128,128,128,128,128,128,128,128
+                defb    128,128,128,128,128,128,128,128
+                defb    128,128,128,128,128,128,128,128
+                defb    128,128,128,128,128,128,128,128
+                defb    128,128,128,128,128,128,128,128
+                defb    128,128,128,128,128,128,128,128
+
+; -------------------------------------------------------------------------------------------------------
 ; CENTIPEDE : Data at end so can be expanded without overwriting other data
 ; Each segment of a centipede contains an active flag (0 dead,128 on,64 kamikaze),x,y and delta x (+/-)
 ; 128 terminates the list.  This enables the ability to inc or dec the length of the centipede.
@@ -2102,7 +2264,7 @@ resetCfin       ; Once we're done...
                 ret                     ; and exit
                 
                 
-centipedespeed  defb    2,2                         ; Speed of the centipede
+centipedespeed  defb    1,1                         ; Speed of the centipede
 centipedeData   defb    255,10,0,1                  ; A segment (active, x, y, dx)
                 defb    255,11,0,1
                 defb    255,12,0,1
