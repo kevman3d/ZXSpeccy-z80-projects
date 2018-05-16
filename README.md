@@ -24,7 +24,8 @@ Each of the different parts of a typical centipede game are demonstrated individ
 ## Miscellaneous files
 The following files are examples, snapshots or other non-code files.  These are in the root of the respository as they require commandline (local machine) to move them to a subfolder.
 - **centipede.png** : Example UDG graphic PNG file (see Tools for the script to read and process this)
-- Note that each of the snapshot files also have short screen recording videos associated with them.
+- _Note that each of the snapshot files also have short screen recording videos associated with them._
+### Playable updates (snap shots) and gameplay video samples
 - **centipede_WIP_200418.sna** : WIP - ZX Spectrum snapshot (.sna) (20-04-18). Player/Centipede/Score/Bullet functionality.
 - **centipede_WIP_230418.sna** : WIP - ZX Spectrum snapshot (.sna) (23-04-18). Dropping 'flea' added.
 - **centipede_WIP_240418.sna** : WIP - ZX Spectrum snapshot (.sna) (23-04-18). Scorpion added.
@@ -33,6 +34,8 @@ The following files are examples, snapshots or other non-code files.  These are 
 - **centipede_WIP_090518.sna** : WIP - ZX Spectrum snapshot (.sna) (09-05-18). Full player and creature collision - now a GAME!
 - **centipede_WIP_110518.sna** : WIP - ZX Spectrum snapshot (.sna) (11-05-18). Centipede generator! Ready to add 'levels'.
 - _(Note : 11-05-18 has **no** accompanying video - need to optimise screen draw when lots of centipedes(flickering))_
+- **centipede_WIP_160518.sna** : WIP - ZX Spectrum snapshot (.sna) (16-05-18). Added non-flickering screen draw
+### Various other misc files
 - **1986_KP_Centipede_design.pdf** : Scanned hand-written notebook plan
 - **centipede_example_demo.sna** : ZX Spectrum snapshot (.sna) that can be loaded in an emulator and run for _centiblock_ demo.
 - **spiderDemo_centiblock_test.sna** : ZX Spectrum snapshot (.sna) to load and run the _centiblock_ spider code.
