@@ -3,8 +3,8 @@ You can consider this repository as being an ongoing collection of code examples
 
 # FILES
 The following is an index of the files in this repository and will be updated as new files are added.
-## Centipede source code
-- **centipede_complete_game.asm** : WIP full game code (updated as work progresses - sna/mp4 added per update (see _Miscellaneous files_ section))
+## Centipede source code (main project file (ie. the one you should read))
+- **centipede_complete_game.asm** : WIP game code (updated 16-05-2018, sna and video added to github (see below))
 ## Utilities and tools
 Non-spectrum tools, written to assist the development process and shave off some time.  These can be found under the **_tools_** subfolder.
 - **centipede_PNG_to_bytes.py** : Python script to read UDG data from a PNG file, creates defb text for use in assembler.
